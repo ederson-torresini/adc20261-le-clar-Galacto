@@ -1,4 +1,11 @@
+@font-face {
+  font-family: 'MinhaFontePersonalizada';
+  src: url('./assets/FONT.TTF') format('truetype');
+}
+
 body {
   margin: 0;
   background: rgb(8, 10, 41);
+  /* Isso garante que a fonte seja pré-carregada */
+  font-family: 'MinhaFontePersonalizada';
 }

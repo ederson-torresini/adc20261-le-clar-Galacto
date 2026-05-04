@@ -80,32 +80,30 @@ export default class Scene0 extends Phaser.Scene {
     this.queuedTurn = null;
     this.worldLayer.add(this.player);
 
-    // --- CORREÇÃO DA UI (Texto) ---
+    // --- UI COM A FONTE NOVA ---
     this.distanceText = this.add
       .text(30, 30, "", {
         fontSize: "40px",
         fill: "#ffffff",
-        fontFamily: "MinhaFonte",
+        fontFamily: "MinhaFontePersonalizada", // Fonte alterada
         stroke: "#000000",
         strokeThickness: 6,
       })
       .setDepth(100)
       .setScrollFactor(0);
 
-    // Importante: A câmera principal deve ignorar o texto para ele não duplicar ou girar
     this.cameras.main.ignore(this.distanceText);
-
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setFollowOffset(0, height * 0.3);
 
     this.uiCam = this.cameras.add(0, 0, width, height);
-    // A UI Cam ignora tudo que se move no mundo, focando só no texto
     this.uiCam.ignore([this.bgStars, this.worldLayer]);
 
     this.animState = "idle";
     this.currentFrame = 0;
     this.turnStep = 0;
 
+    // Apenas cliques laterais para virar (Manobras removidas)
     this.input.on("pointerdown", (pointer) => {
       if (this.isGameOver) return;
       const isRight = pointer.x > width / 2;
@@ -153,11 +151,9 @@ export default class Scene0 extends Phaser.Scene {
       duration: camDur,
     });
 
-    // --- CORREÇÃO DA ROTAÇÃO DO PERSONAGEM ---
     let shipTargetRad = targetCamRad === 0 ? 0 : -targetCamRad;
     if (this.carrierTravelDir === "DOWN") shipTargetRad = Math.PI;
 
-    // Rotaciona a nave
     const currentShipRad = this.carrier.rotation;
     let shipDiff = Math.atan2(
       Math.sin(shipTargetRad - currentShipRad),
@@ -169,7 +165,6 @@ export default class Scene0 extends Phaser.Scene {
       duration: camDur,
     });
 
-    // Rotaciona o personagem Theo junto
     const currentPlayerRad = this.player.rotation;
     let playerDiff = Math.atan2(
       Math.sin(shipTargetRad - currentPlayerRad),
@@ -182,7 +177,6 @@ export default class Scene0 extends Phaser.Scene {
     });
   }
 
-  // Restante das funções auxiliares...
   spawnAsteroidNear(x, y) {
     for (let i = 0; i < 4; i++) {
       if (Math.random() > 0.7) continue;

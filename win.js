@@ -4,7 +4,6 @@ export default class Win extends Phaser.Scene {
   }
 
   preload() {
-    // Escolha sua imagem de vitória aqui
     this.load.image("win_bg", "assets/win_bg.png");
   }
 
@@ -22,6 +21,7 @@ export default class Win extends Phaser.Scene {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 8,
+        fontFamily: "MinhaFontePersonalizada", // Fonte alterada
       })
       .setOrigin(0.5);
 
@@ -29,6 +29,7 @@ export default class Win extends Phaser.Scene {
       .text(width / 2, height * 0.6, "Toque para voltar ao Menu", {
         fontSize: "24px",
         fill: "#ffffff",
+        fontFamily: "MinhaFontePersonalizada", // Fonte alterada
       })
       .setOrigin(0.5);
 
