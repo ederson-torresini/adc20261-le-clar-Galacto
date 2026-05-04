@@ -11,13 +11,11 @@ export default class Gameover extends Phaser.Scene {
     this.add
       .text(width / 2, height * 0.4, "GAME OVER", {
         fontSize: "60px",
-        fill: "#7e7e7e", // Cor alterada
+        fill: "#7e7e7e",
         fontStyle: "bold",
         fontFamily: "MinhaFontePersonalizada",
       })
       .setOrigin(0.5);
-
-    // Instrução removida conforme solicitado
 
     this.input.on("pointerdown", () => {
       this.scene.start("scene0");

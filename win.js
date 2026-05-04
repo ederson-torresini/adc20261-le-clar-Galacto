@@ -15,17 +15,13 @@ export default class Win extends Phaser.Scene {
     this.bg.setScale(bgScale);
 
     this.add
-      .text(width / 2, height * 0.4, "Venceu!", {
-        fontSize: "40px", // Diminuído de 64px para 40px
+      .text(width / 2, height * 0.4, "MISSÃO CUMPRIDA!", {
+        fontSize: "40px",
         fill: "#7e7e7e",
         fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 8,
-        fontFamily: "MinhaFontePersonalizada",
+        fontFamily: "MinhaFontePersonalizada", // Borda removida aqui
       })
       .setOrigin(0.5);
-
-    // Instrução removida conforme solicitado anteriormente
 
     this.input.on("pointerdown", () => this.scene.start("menu"));
   }

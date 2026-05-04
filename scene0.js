@@ -80,14 +80,12 @@ export default class Scene0 extends Phaser.Scene {
     this.queuedTurn = null;
     this.worldLayer.add(this.player);
 
-    // --- HUD ATUALIZADO (Aumentado 1 ponto conforme pedido) ---
+    // --- HUD ATUALIZADO (Borda removida) ---
     this.distanceText = this.add
       .text(30, 30, "", {
-        fontSize: "29px", // Aumentado de 28px para 29px
+        fontSize: "29px",
         fill: "#7e7e7e",
         fontFamily: "MinhaFontePersonalizada",
-        stroke: "#000000",
-        strokeThickness: 4,
       })
       .setDepth(100)
       .setScrollFactor(0);
