@@ -15,7 +15,7 @@ export default class Win extends Phaser.Scene {
     this.bg.setScale(bgScale);
 
     this.add
-      .text(width / 2, height * 0.4, "MISSÃO CUMPRIDA!", {
+      .text(width / 2, height * 0.4, "Venceu!", {
         fontSize: "40px",
         fill: "#7e7e7e",
         fontStyle: "bold",

@@ -60,7 +60,8 @@ export default class Scene0 extends Phaser.Scene {
     this.lastTurnDir = "none";
 
     this.speed = 250;
-    this.targetDistance = 10000;
+    // DISTÂNCIA AUMENTADA: De 10k para 25k
+    this.targetDistance = 25000;
     this.distanceTraveled = 0;
     this.isGameOver = false;
 
@@ -80,7 +81,6 @@ export default class Scene0 extends Phaser.Scene {
     this.queuedTurn = null;
     this.worldLayer.add(this.player);
 
-    // --- HUD ATUALIZADO (Borda removida) ---
     this.distanceText = this.add
       .text(30, 30, "", {
         fontSize: "29px",
@@ -239,8 +239,10 @@ export default class Scene0 extends Phaser.Scene {
 
   generateTrackPiece() {
     let type = "way_f";
-    let minS = this.speed > 550 ? 1 : this.speed > 400 ? 2 : 3;
-    let cChance = 0.3 + (this.speed - 250) / 1200;
+    // DIFICULDADE: Reduz o número mínimo de retas mais rápido
+    let minS = this.speed > 500 ? 0 : this.speed > 350 ? 1 : 2;
+    // DIFICULDADE: Aumenta a chance de curvas com base na velocidade (mais agressivo)
+    let cChance = 0.4 + (this.speed - 250) / 800;
 
     if (this.justTurned) {
       type = "way_f";
@@ -318,7 +320,8 @@ export default class Scene0 extends Phaser.Scene {
     const dtSeconds = delta / 1000;
     if (this.isGameOver) return;
 
-    this.speed = Math.min(800, this.speed + 4 * dtSeconds);
+    // ACELERAÇÃO: Aumentada de 4 para 7 (fica difícil bem mais rápido)
+    this.speed = Math.min(850, this.speed + 7 * dtSeconds);
     const distanceStep = this.speed * dtSeconds;
     this.distanceTraveled += distanceStep;
 
