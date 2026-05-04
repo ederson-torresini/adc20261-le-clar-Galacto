@@ -15,31 +15,17 @@ export default class Win extends Phaser.Scene {
     this.bg.setScale(bgScale);
 
     this.add
-      .text(width / 2, height * 0.4, "MISSÃO CUMPRIDA!", {
-        fontSize: "64px",
-        fill: "#00ff00",
+      .text(width / 2, height * 0.4, "Venceu!", {
+        fontSize: "40px", // Diminuído de 64px para 40px
+        fill: "#7e7e7e",
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 8,
-        fontFamily: "MinhaFontePersonalizada", // Fonte alterada
+        fontFamily: "MinhaFontePersonalizada",
       })
       .setOrigin(0.5);
 
-    const msg = this.add
-      .text(width / 2, height * 0.6, "Toque para voltar ao Menu", {
-        fontSize: "24px",
-        fill: "#ffffff",
-        fontFamily: "MinhaFontePersonalizada", // Fonte alterada
-      })
-      .setOrigin(0.5);
-
-    this.tweens.add({
-      targets: msg,
-      alpha: 0,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-    });
+    // Instrução removida conforme solicitado anteriormente
 
     this.input.on("pointerdown", () => this.scene.start("menu"));
   }

@@ -80,14 +80,14 @@ export default class Scene0 extends Phaser.Scene {
     this.queuedTurn = null;
     this.worldLayer.add(this.player);
 
-    // --- UI COM A FONTE NOVA ---
+    // --- HUD ATUALIZADO (Aumentado 1 ponto conforme pedido) ---
     this.distanceText = this.add
       .text(30, 30, "", {
-        fontSize: "40px",
-        fill: "#ffffff",
-        fontFamily: "MinhaFontePersonalizada", // Fonte alterada
+        fontSize: "29px", // Aumentado de 28px para 29px
+        fill: "#7e7e7e",
+        fontFamily: "MinhaFontePersonalizada",
         stroke: "#000000",
-        strokeThickness: 6,
+        strokeThickness: 4,
       })
       .setDepth(100)
       .setScrollFactor(0);
@@ -103,7 +103,6 @@ export default class Scene0 extends Phaser.Scene {
     this.currentFrame = 0;
     this.turnStep = 0;
 
-    // Apenas cliques laterais para virar (Manobras removidas)
     this.input.on("pointerdown", (pointer) => {
       if (this.isGameOver) return;
       const isRight = pointer.x > width / 2;
@@ -329,7 +328,7 @@ export default class Scene0 extends Phaser.Scene {
       0,
       Math.floor(this.targetDistance - this.distanceTraveled),
     );
-    this.distanceText.setText(`DESTINO: ${remaining}m`);
+    this.distanceText.setText(`${remaining}`);
 
     if (this.distanceTraveled >= this.targetDistance) {
       this.isGameOver = true;

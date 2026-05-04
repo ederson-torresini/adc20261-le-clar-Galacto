@@ -17,28 +17,13 @@ export default class Menu extends Phaser.Scene {
     this.titleText = this.add
       .text(width / 2, height * 0.15, "GALACTO", {
         fontSize: "80px",
-        fill: "#ffffff",
+        fill: "#7e7e7e", // Cor alterada
         fontStyle: "bold",
-        fontFamily: "MinhaFontePersonalizada", // Fonte alterada
+        fontFamily: "MinhaFontePersonalizada",
       })
       .setOrigin(0.5);
 
-    this.instructionText = this.add
-      .text(width / 2, height * 0.8, "Toque para Iniciar", {
-        fontSize: "32px",
-        fill: "#ffffff",
-        fontFamily: "MinhaFontePersonalizada", // Fonte alterada
-      })
-      .setOrigin(0.5);
-
-    this.tweens.add({
-      targets: this.instructionText,
-      alpha: 0,
-      duration: 800,
-      ease: "Power2",
-      yoyo: true,
-      repeat: -1,
-    });
+    // Instrução removida conforme solicitado
 
     this.input.on("pointerdown", () => {
       this.startTransition();
@@ -58,7 +43,5 @@ export default class Menu extends Phaser.Scene {
         this.scene.start("scene0");
       },
     });
-
-    this.instructionText.setVisible(false);
   }
 }
