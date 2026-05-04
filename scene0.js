@@ -57,10 +57,11 @@ export default class Scene0 extends Phaser.Scene {
     this.trackCursor = { x: 0, y: 0, dir: "UP" };
     this.straightPiecesCount = 0;
     this.justTurned = false;
-    this.lastTurnDir = "none";
+
+    // Nova trava para evitar auto-colisão da pista
+    this.turnHistory = 0;
 
     this.speed = 250;
-    // DISTÂNCIA AUMENTADA: De 10k para 25k
     this.targetDistance = 25000;
     this.distanceTraveled = 0;
     this.isGameOver = false;
@@ -239,9 +240,7 @@ export default class Scene0 extends Phaser.Scene {
 
   generateTrackPiece() {
     let type = "way_f";
-    // DIFICULDADE: Reduz o número mínimo de retas mais rápido
     let minS = this.speed > 500 ? 0 : this.speed > 350 ? 1 : 2;
-    // DIFICULDADE: Aumenta a chance de curvas com base na velocidade (mais agressivo)
     let cChance = 0.4 + (this.speed - 250) / 800;
 
     if (this.justTurned) {
@@ -251,18 +250,24 @@ export default class Scene0 extends Phaser.Scene {
     } else {
       this.straightPiecesCount++;
       if (this.straightPiecesCount > minS && Math.random() < cChance) {
-        type =
-          this.lastTurnDir === "left"
-            ? "way_r"
-            : this.lastTurnDir === "right"
-              ? "way_l"
-              : Math.random() < 0.5
-                ? "way_l"
-                : "way_r";
-        this.lastTurnDir = type === "way_l" ? "left" : "right";
+        // LÓGICA DE CURVA IMPREVISÍVEL:
+        // turnHistory monitora o saldo de curvas (Direita=+1, Esquerda=-1)
+        // Se o saldo for +1, ele não pode virar para a Direita de novo (evita 180º)
+        // Se o saldo for -1, ele não pode virar para a Esquerda de novo.
+        if (this.turnHistory > 0) {
+          type = "way_l";
+        } else if (this.turnHistory < 0) {
+          type = "way_r";
+        } else {
+          // Se o caminho está reto (saldo 0), escolhe qualquer uma
+          type = Math.random() < 0.5 ? "way_l" : "way_r";
+        }
+
+        this.turnHistory += type === "way_r" ? 1 : -1;
         this.justTurned = true;
       }
     }
+
     const piece = this.add
       .image(this.trackCursor.x, this.trackCursor.y, type)
       .setDisplaySize(this.gridSize, this.gridSize)
@@ -320,7 +325,6 @@ export default class Scene0 extends Phaser.Scene {
     const dtSeconds = delta / 1000;
     if (this.isGameOver) return;
 
-    // ACELERAÇÃO: Aumentada de 4 para 7 (fica difícil bem mais rápido)
     this.speed = Math.min(850, this.speed + 7 * dtSeconds);
     const distanceStep = this.speed * dtSeconds;
     this.distanceTraveled += distanceStep;
