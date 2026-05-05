@@ -12,6 +12,21 @@ class Game extends Phaser.Game {
     this.scene.add("gameover", GameOver);
     this.scene.add("win", Win);
     this.scene.start("menu");
+
+    if (location.hostname.match(/localhost|127\.0\.0\.1/)) {
+      this.socket = io("http://localhost:3000");
+    } else if (location.hostname.match(/github\.dev/)) {
+      this.socket = io(location.hostname.replace("8080", "3000"));
+    } else {
+      this.socket = io();
+    }
+
+    this.room = "0";
+    this.socket.on("connect", () => {
+      console.log("Socket ID:", this.socket.id);
+
+      this.socket.emit("join-room", this.room);
+    });
   }
 }
 
