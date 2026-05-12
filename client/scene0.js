@@ -14,6 +14,9 @@ export default class Scene0 extends Phaser.Scene {
     this.load.image("way_r", "assets/way_r.png");
     this.load.image("spaceship_new", "assets/spaceship_new.png");
     this.load.audio("swoosh", "assets/swoosh.mp3");
+
+    this.load.audio("soundtrack", "assets/soundtrack.mp3");
+
     this.load.image("aster_1", "assets/aster_1.png");
     this.load.image("aster_2", "assets/aster_2.png");
     this.load.image("aster_3", "assets/aster_3.png");
@@ -59,10 +62,13 @@ export default class Scene0 extends Phaser.Scene {
     this.justTurned = false;
     this.turnHistory = 0;
 
-    this.speed = 250;
-    this.targetDistance = 25000;
-    this.distanceTraveled = 0;
+    this.speed = 400;
+    this.maxTime = 294;
+    this.timeElapsed = 0;
     this.isGameOver = false;
+
+    this.bgMusic = this.sound.add("soundtrack", { loop: true, volume: 0.5 });
+    this.bgMusic.play();
 
     for (let i = 0; i < 20; i++) this.generateTrackPiece();
 
@@ -82,7 +88,6 @@ export default class Scene0 extends Phaser.Scene {
     this.playerLeanAngle = 0;
     this.leanDirection = "NONE";
     this.leanSpeed = 180;
-    this.playerTravelDir = "UP";
 
     this.distanceText = this.add
       .text(30, 30, "", {
@@ -94,7 +99,9 @@ export default class Scene0 extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.cameras.main.ignore(this.distanceText);
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+
+    // MUDANÇA: A câmera agora segue a NAVE, não mais o jogador
+    this.cameras.main.startFollow(this.carrier, true, 0.1, 0.1);
     this.cameras.main.setFollowOffset(0, height * 0.3);
 
     this.uiCam = this.cameras.add(0, 0, width, height);
@@ -191,9 +198,8 @@ export default class Scene0 extends Phaser.Scene {
 
   triggerFall() {
     if (this.isGameOver) return;
-    this.isGameOver = true;
+    this.isGameOver = true; // Impede controle e update da UI, mas a nave continua
 
-    // Se ele não inclinou para lado nenhum e bateu, escolhe um lado aleatório pra cair
     const fallSide =
       this.playerLeanAngle !== 0
         ? this.playerLeanAngle > 0
@@ -203,25 +209,36 @@ export default class Scene0 extends Phaser.Scene {
           ? 1
           : -1;
 
-    // Mudar imediatamente para o sprite 2 (inclinação máxima)
     this.player.setFrame(2);
 
-    // Animação de queda arremessando ATÉ 60 graus (novo limite solicitado)
+    // Faz o jogador rotacionar ao cair
     this.tweens.add({
-      targets: this,
-      playerLeanAngle: fallSide * 60,
-      duration: 400,
+      targets: this.player,
+      angle: this.player.angle + fallSide * 180,
+      duration: 1200,
       ease: "Power1",
     });
 
-    const impulse = fallSide * 300;
+    // MUDANÇA: Arremessa o jogador fisicamente, mantendo inércia pra frente
+    const impulse = fallSide * 400;
     if (this.carrierTravelDir === "UP" || this.carrierTravelDir === "DOWN") {
       this.player.body.setVelocityX(impulse);
+      this.player.body.setVelocityY(this.carrier.body.velocity.y);
     } else {
       this.player.body.setVelocityY(impulse);
+      this.player.body.setVelocityX(this.carrier.body.velocity.x);
     }
 
-    this.time.delayedCall(1200, () => this.scene.start("gameover"));
+    this.tweens.add({
+      targets: this.bgMusic,
+      volume: 0,
+      duration: 1200,
+    });
+
+    this.time.delayedCall(1200, () => {
+      this.bgMusic.stop();
+      this.scene.start("gameover");
+    });
   }
 
   attemptTurn(turnIntent) {
@@ -231,8 +248,9 @@ export default class Scene0 extends Phaser.Scene {
 
   generateTrackPiece() {
     let type = "way_f";
-    let minS = this.speed > 500 ? 0 : this.speed > 350 ? 1 : 2;
-    let cChance = 0.4 + (this.speed - 250) / 800;
+
+    let minS = this.speed > 800 ? 0 : this.speed > 600 ? 1 : 2;
+    let cChance = 0.4 + (this.speed - 400) / 800;
 
     if (this.justTurned) {
       type = "way_f";
@@ -304,14 +322,13 @@ export default class Scene0 extends Phaser.Scene {
   }
 
   update(time, delta) {
-
     try {
       this.game.socket.emit("scene0", this.game.room, {
         player: {
           x: this.player.body.velocity.x,
           y: this.player.body.velocity.y,
-          key: this.player.anims.currentAnim.key,
-          frame: this.player.anims.currentFrame.index,
+          key: this.player.anims.currentAnim?.key || null,
+          frame: this.player.anims.currentFrame?.index || 0,
         },
       });
     } catch (e) {
@@ -319,77 +336,72 @@ export default class Scene0 extends Phaser.Scene {
     }
 
     const dtSeconds = delta / 1000;
-    if (this.isGameOver) {
+
+    // --- LÓGICA DO JOGADOR (Apenas se ainda estiver vivo) ---
+    if (!this.isGameOver) {
+      this.timeElapsed += dtSeconds;
+      this.speed = Math.min(900, 400 + 500 * (this.timeElapsed / this.maxTime));
+
+      let remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
+      let remainingDistance = Math.floor(remainingTime * 100);
+      this.distanceText.setText(`${remainingDistance}`);
+
+      if (remainingTime <= 0) {
+        this.isGameOver = true;
+        this.tweens.add({
+          targets: this.bgMusic,
+          volume: 0,
+          duration: 1000,
+          onComplete: () => {
+            this.bgMusic.stop();
+            this.scene.start("win");
+          },
+        });
+      }
+
+      if (this.leanDirection === "LEFT") {
+        this.playerLeanAngle -= this.leanSpeed * dtSeconds;
+        if (this.playerLeanAngle < -30) this.playerLeanAngle = -30;
+        this.player.setFlipX(true);
+      } else if (this.leanDirection === "RIGHT") {
+        this.playerLeanAngle += this.leanSpeed * dtSeconds;
+        if (this.playerLeanAngle > 30) this.playerLeanAngle = 30;
+        this.player.setFlipX(false);
+      }
+
+      const absAngle = Math.abs(this.playerLeanAngle);
+      if (absAngle < 15) {
+        this.player.setFrame(0);
+      } else {
+        this.player.setFrame(1);
+      }
+
+      // MUDANÇA: Offset (deslocamento) do sprite conforme ele se inclina
+      const maxOffset = 18;
+      const shift = (this.playerLeanAngle / 30) * maxOffset;
+      let offX = 0,
+        offY = 0;
+
+      if (this.carrierTravelDir === "UP") offX = shift;
+      else if (this.carrierTravelDir === "DOWN") offX = -shift;
+      else if (this.carrierTravelDir === "RIGHT") offY = shift;
+      else if (this.carrierTravelDir === "LEFT") offY = -shift;
+
+      this.player.setPosition(this.carrier.x + offX, this.carrier.y + offY);
       this.player.setRotation(
         this.carrier.rotation + Phaser.Math.DegToRad(this.playerLeanAngle),
       );
-      return;
     }
 
-    this.speed = Math.min(850, this.speed + 7 * dtSeconds);
-    const distanceStep = this.speed * dtSeconds;
-    this.distanceTraveled += distanceStep;
+    // --- LÓGICA DA NAVE / TRILHA (Sempre executa!) ---
 
-    let remaining = Math.max(
-      0,
-      Math.floor(this.targetDistance - this.distanceTraveled),
-    );
-    this.distanceText.setText(`${remaining}`);
-
-    if (this.distanceTraveled >= this.targetDistance) {
-      this.isGameOver = true;
-      this.scene.start("win");
-    }
-
+    // 1. Movimento constante da Nave
     const v = { UP: [0, -1], DOWN: [0, 1], LEFT: [-1, 0], RIGHT: [1, 0] }[
       this.carrierTravelDir
     ];
     this.carrier.setVelocity(v[0] * this.speed, v[1] * this.speed);
 
-    // 1. Verifica em qual peça estamos e se é uma curva correta
-    const cp = this.getPieceUnder(this.carrier);
-    let isOnCorrectCurve = false;
-
-    if (cp && cp !== this.carrier.lastTurnedPiece && cp.trackType !== "way_f") {
-      const requiredTurn = cp.trackType === "way_r" ? "RIGHT" : "LEFT";
-      if (this.leanDirection === requiredTurn) {
-        isOnCorrectCurve = true;
-      }
-    }
-
-    // 2. Lógica de inclinação: Trava em 30 graus durante o jogo normal (Novo limite solicitado)
-    if (this.leanDirection === "LEFT") {
-      this.playerLeanAngle -= this.leanSpeed * dtSeconds;
-      // Sempre trava em 30, a curva correta é gerenciada pela física depois
-      if (this.playerLeanAngle < -30) this.playerLeanAngle = -30;
-      this.player.setFlipX(true);
-    } else if (this.leanDirection === "RIGHT") {
-      this.playerLeanAngle += this.leanSpeed * dtSeconds;
-      if (this.playerLeanAngle > 30) this.playerLeanAngle = 30; // Trava em 30
-      this.player.setFlipX(false);
-    }
-
-    // 3. Gerenciamento de frames: Apenas 0 e 1 no jogo normal
-    const absAngle = Math.abs(this.playerLeanAngle);
-    if (absAngle < 15) {
-      this.player.setFrame(0);
-    } else {
-      // Inclinação suave até 30 graus usa o frame 1
-      this.player.setFrame(1);
-    }
-    // O frame 2 (absAngle >= 60) é gerenciado apenas dentro do triggerFall()
-
-    this.player.setRotation(
-      this.carrier.rotation + Phaser.Math.DegToRad(this.playerLeanAngle),
-    );
-    this.player.setPosition(this.carrier.x, this.carrier.y);
-
-    // 4. Se inclinou fora da curva, ele deve cair.
-    // Como limitamos a 30, precisamos checar se ele está inclinando em uma reta.
-    if (cp && cp.trackType === "way_f" && this.leanDirection !== "NONE") {
-      this.triggerFall();
-    }
-
+    // 2. Animação do Background
     this.bgStars.tilePositionX = this.cameras.main.scrollX * 0.1;
     this.bgStars.tilePositionY = this.cameras.main.scrollY * 0.1;
 
@@ -408,42 +420,7 @@ export default class Scene0 extends Phaser.Scene {
       a.y += a.driftY * dtSeconds;
     }
 
-    // 5. Mecânica de passagem pela curva
-    if (cp && cp !== this.carrier.lastTurnedPiece && cp.trackType !== "way_f") {
-      let passed =
-        (this.carrierTravelDir === "UP" && this.carrier.y <= cp.y) ||
-        (this.carrierTravelDir === "DOWN" && this.carrier.y >= cp.y) ||
-        (this.carrierTravelDir === "RIGHT" && this.carrier.x >= cp.x) ||
-        (this.carrierTravelDir === "LEFT" && this.carrier.x <= cp.x);
-
-      if (passed) {
-        const requiredTurn = cp.trackType === "way_r" ? "RIGHT" : "LEFT";
-
-        if (this.leanDirection === requiredTurn) {
-          const next = {
-            UP: { RIGHT: "RIGHT", LEFT: "LEFT" },
-            RIGHT: { RIGHT: "DOWN", LEFT: "UP" },
-            LEFT: { RIGHT: "UP", LEFT: "DOWN" },
-            DOWN: { RIGHT: "LEFT", LEFT: "RIGHT" },
-          }[this.carrierTravelDir][requiredTurn];
-
-          this.carrierTravelDir = next;
-          this.carrier.setPosition(cp.x, cp.y);
-          this.carrier.lastTurnedPiece = cp;
-
-          this.playerLeanAngle = 0;
-          this.leanDirection = "NONE";
-          this.player.setFrame(0);
-          this.player.setFlipX(requiredTurn === "LEFT");
-
-          this.sound.play("swoosh");
-          this.updateCameraRotation();
-        } else {
-          this.triggerFall();
-        }
-      }
-    }
-
+    // 3. Geração infinita da pista
     if (
       Phaser.Math.Distance.Between(
         this.carrier.x,
@@ -454,10 +431,64 @@ export default class Scene0 extends Phaser.Scene {
     ) {
       this.generateTrackPiece();
     }
-
     if (this.roadPieces.length > 40) this.roadPieces.shift().destroy();
 
-    if (!this.getPieceUnder(this.carrier)) this.triggerFall();
+    // 4. Verificação de curvas
+    const cp = this.getPieceUnder(this.carrier);
+
+    // Jogador cai se inclinar no lugar errado (numa reta)
+    if (
+      !this.isGameOver &&
+      cp &&
+      cp.trackType === "way_f" &&
+      this.leanDirection !== "NONE"
+    ) {
+      this.triggerFall();
+    }
+
+    // MUDANÇA: A Nave sempre obedece a curva automaticamente, independente do jogador
+    if (cp && cp !== this.carrier.lastTurnedPiece && cp.trackType !== "way_f") {
+      let passed =
+        (this.carrierTravelDir === "UP" && this.carrier.y <= cp.y) ||
+        (this.carrierTravelDir === "DOWN" && this.carrier.y >= cp.y) ||
+        (this.carrierTravelDir === "RIGHT" && this.carrier.x >= cp.x) ||
+        (this.carrierTravelDir === "LEFT" && this.carrier.x <= cp.x);
+
+      if (passed) {
+        const requiredTurn = cp.trackType === "way_r" ? "RIGHT" : "LEFT";
+        const next = {
+          UP: { RIGHT: "RIGHT", LEFT: "LEFT" },
+          RIGHT: { RIGHT: "DOWN", LEFT: "UP" },
+          LEFT: { RIGHT: "UP", LEFT: "DOWN" },
+          DOWN: { RIGHT: "LEFT", LEFT: "RIGHT" },
+        }[this.carrierTravelDir][requiredTurn];
+
+        // Rotação autônoma da Nave e Câmera
+        this.carrierTravelDir = next;
+        this.carrier.setPosition(cp.x, cp.y);
+        this.carrier.lastTurnedPiece = cp;
+        this.updateCameraRotation();
+
+        // O Jogador acompanhou a curva?
+        if (!this.isGameOver) {
+          if (this.leanDirection === requiredTurn) {
+            // SUCESSO - volta para a posição inicial no centro
+            this.playerLeanAngle = 0;
+            this.leanDirection = "NONE";
+            this.player.setFrame(0);
+            this.player.setFlipX(requiredTurn === "LEFT");
+            this.sound.play("swoosh");
+          } else {
+            // FALHA - O jogador é lançado
+            this.triggerFall();
+          }
+        }
+      }
+    }
+
+    if (!this.isGameOver && !this.getPieceUnder(this.carrier)) {
+      this.triggerFall();
+    }
   }
 
   getPieceUnder(target) {
