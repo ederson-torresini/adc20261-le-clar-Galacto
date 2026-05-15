@@ -3,25 +3,6 @@ export default class Scene0 extends Phaser.Scene {
     super("scene0");
   }
 
-  preload() {
-    this.load.image("logo", "assets/pixel-art.png");
-    this.load.spritesheet("player", "assets/player.png", {
-      frameWidth: 32,
-      frameHeight: 32,
-    });
-    this.load.image("way_f", "assets/way_f.png");
-    this.load.image("way_l", "assets/way_l.png");
-    this.load.image("way_r", "assets/way_r.png");
-    this.load.image("spaceship_new", "assets/spaceship_new.png");
-    this.load.audio("swoosh", "assets/swoosh.mp3");
-
-    this.load.audio("soundtrack", "assets/soundtrack.mp3");
-
-    this.load.image("aster_1", "assets/aster_1.png");
-    this.load.image("aster_2", "assets/aster_2.png");
-    this.load.image("aster_3", "assets/aster_3.png");
-  }
-
   create() {
     const { width, height } = this.scale;
     this.worldLayer = this.add.group();

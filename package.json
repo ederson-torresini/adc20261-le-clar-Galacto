@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "install": "npm install --prefix server",
+    "dev": "concurrently \"npm run start\" \"npm run client\"",
+    "start": "npm start --prefix server",
+    "client": "npx -y http-server client -p 8080"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

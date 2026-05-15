@@ -3,10 +3,6 @@ export default class Win extends Phaser.Scene {
     super("win");
   }
 
-  preload() {
-    this.load.image("win_bg", "assets/win_bg.png");
-  }
-
   create() {
     const { width, height } = this.scale;
 

@@ -3,8 +3,17 @@ export default class Menu extends Phaser.Scene {
     super("menu");
   }
 
+  init() {
+    let room = new URLSearchParams(location.search).get("room");
+    if (room) {
+      this.game.room = room;
+      this.game.socket.emit("join-room", this.game.room);
+    }
+  }
+
   preload() {
-    this.load.image("menu_bg", "assets/menu_bg.png");
+    this.load.setPath("assets/");
+    this.load.image("menu_bg.png");
   }
 
   create() {
@@ -24,7 +33,8 @@ export default class Menu extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.input.on("pointerdown", () => {
-      this.startTransition();
+      this.scene.stop("menu");
+      this.scene.start("preloader");
     });
   }
 

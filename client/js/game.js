@@ -1,6 +1,8 @@
 import config from "./config.js";
 import Scene0 from "./scene0.js";
 import Menu from "./menu.js";
+import preloader from "./preloader.js";
+import room from "./room.js";
 import GameOver from "./gameover.js";
 import Win from "./win.js";
 
@@ -8,6 +10,8 @@ class Game extends Phaser.Game {
   constructor() {
     super(config);
     this.scene.add("menu", Menu);
+    this.scene.add("preloader", preloader);
+    this.scene.add("room", room);
     this.scene.add("scene0", Scene0);
     this.scene.add("gameover", GameOver);
     this.scene.add("win", Win);
@@ -21,11 +25,20 @@ class Game extends Phaser.Game {
       this.socket = io();
     }
 
-    this.room = "0";
     this.socket.on("connect", () => {
       console.log("Socket ID:", this.socket.id);
 
-      this.socket.emit("join-room", this.room);
+      this.socket.on("change-scene", (scene) => {
+        let currentScene = this.scene.scenes.find((s) =>
+          s.scene.isActive(),
+        ).scene.key
+
+        if (currentScene !== scene) {
+          console.log("Changing scene to:", scene);
+          this.scene.stop(currentScene);
+          this.scene.start(scene);
+        }
+      });
     });
   }
 }
