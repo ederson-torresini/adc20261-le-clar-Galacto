@@ -43,15 +43,23 @@ export default class Scene0 extends Phaser.Scene {
     this.justTurned = false;
     this.turnHistory = 0;
 
-    this.speed = 400;
-    this.maxTime = 294;
+    // DIFICULDADE SUPREMA
+    this.speed = 550;
+    this.maxTime = 90;
     this.timeElapsed = 0;
     this.isGameOver = false;
+
+    // PONTUAÇÃO (Sobrevivência é obrigatória)
+    this.score = 0;
+    this.targetScore = 1500;
+    this.isDoingTrick = false;
+    this.trickCooldown = false;
 
     this.bgMusic = this.sound.add("soundtrack", { loop: true, volume: 0.5 });
     this.bgMusic.play();
 
-    for (let i = 0; i < 20; i++) this.generateTrackPiece();
+    // Gera mais blocos de início para mostrar o caminho lá na frente
+    for (let i = 0; i < 40; i++) this.generateTrackPiece();
 
     this.carrier = this.physics.add.sprite(0, 0, "spaceship_new").setDepth(9);
     this.carrier.setScale((this.gridSize / this.carrier.width) * 0.6);
@@ -68,36 +76,92 @@ export default class Scene0 extends Phaser.Scene {
 
     this.playerLeanAngle = 0;
     this.leanDirection = "NONE";
-    this.leanSpeed = 180;
+    this.leanSpeed = 190;
 
-    this.distanceText = this.add
-      .text(30, 30, "", {
+    this.timeText = this.add
+      .text(30, 30, `Tempo: ${this.maxTime}s`, {
         fontSize: "29px",
-        fill: "#7e7e7e",
+        fill: "#ffffff",
         fontFamily: "MinhaFontePersonalizada",
       })
       .setDepth(100)
       .setScrollFactor(0);
 
-    this.cameras.main.ignore(this.distanceText);
+    this.scoreText = this.add
+      .text(30, 70, `Pontos: 0 / ${this.targetScore}`, {
+        fontSize: "24px",
+        fill: "#ffff00",
+        fontFamily: "MinhaFontePersonalizada",
+      })
+      .setDepth(100)
+      .setScrollFactor(0);
 
-    // MUDANÇA: A câmera agora segue a NAVE, não mais o jogador
+    // Configurando Câmera - ZOOM OUT e OFFSET para ver o futuro!
+    this.cameras.main.ignore(this.timeText);
+    this.cameras.main.ignore(this.scoreText);
+
     this.cameras.main.startFollow(this.carrier, true, 0.1, 0.1);
-    this.cameras.main.setFollowOffset(0, height * 0.3);
+    this.cameras.main.setZoom(0.75); // Afasta a câmera para visão estratégica
+    this.cameras.main.setFollowOffset(0, height * 0.4); // Empurra o jogador mais pra baixo/canto
 
     this.uiCam = this.cameras.add(0, 0, width, height);
     this.uiCam.ignore([this.bgStars, this.worldLayer]);
 
     this.input.on("pointerdown", (pointer) => {
       if (this.isGameOver) return;
+
+      if (pointer.y < 150) {
+        this.startTrick();
+        return;
+      }
+
       const isRight = pointer.x > width / 2;
       this.attemptTurn(isRight ? "RIGHT" : "LEFT");
     });
+
     this.game.socket.on("scene0", (state) => {
       if (state.gravity) {
         this.physics.world.gravity.y = state.gravity;
         this.player.setFlipY(this.physics.world.gravity.y < 0);
       }
+    });
+  }
+
+  startTrick() {
+    if (
+      this.isGameOver ||
+      this.isDoingTrick ||
+      this.trickCooldown ||
+      this.leanDirection !== "NONE"
+    )
+      return;
+
+    this.isDoingTrick = true;
+    this.trickCooldown = true;
+    this.sound.play("swoosh");
+
+    this.tweens.add({
+      targets: this.player,
+      angle: this.player.angle + 360,
+      duration: 1400, // Volta aos cruéis 1.4 segundos no ar
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        if (this.isGameOver) return;
+
+        this.isDoingTrick = false;
+        this.score += 300;
+
+        // Cor do texto muda se bater a meta
+        if (this.score >= this.targetScore) {
+          this.scoreText.setColor("#00ff00");
+        }
+        this.scoreText.setText(`Pontos: ${this.score} / ${this.targetScore}`);
+
+        // Cooldown de 1 segundo
+        this.time.delayedCall(1000, () => {
+          this.trickCooldown = false;
+        });
+      },
     });
   }
 
@@ -108,7 +172,7 @@ export default class Scene0 extends Phaser.Scene {
     else if (this.carrierTravelDir === "DOWN") targetCamRad = -Math.PI;
     else if (this.carrierTravelDir === "LEFT") targetCamRad = Math.PI / 2;
 
-    const camDur = Math.max(150, 300 - (this.speed - 250) * 0.2);
+    const camDur = Math.max(120, 250 - (this.speed - 250) * 0.2);
 
     const currentCamRad = this.cameras.main.rotation;
     let camDiff = Math.atan2(
@@ -121,7 +185,8 @@ export default class Scene0 extends Phaser.Scene {
       duration: camDur,
     });
 
-    let dist = this.scale.height * 0.3;
+    // Usa offset maior (0.4) para acompanhar a mudança inicial e mostrar mais a frente
+    let dist = this.scale.height * 0.4;
     let offX = 0,
       offY = 0;
     if (this.carrierTravelDir === "UP") offY = dist;
@@ -179,7 +244,7 @@ export default class Scene0 extends Phaser.Scene {
 
   triggerFall() {
     if (this.isGameOver) return;
-    this.isGameOver = true; // Impede controle e update da UI, mas a nave continua
+    this.isGameOver = true;
 
     const fallSide =
       this.playerLeanAngle !== 0
@@ -192,7 +257,6 @@ export default class Scene0 extends Phaser.Scene {
 
     this.player.setFrame(2);
 
-    // Faz o jogador rotacionar ao cair
     this.tweens.add({
       targets: this.player,
       angle: this.player.angle + fallSide * 180,
@@ -200,7 +264,6 @@ export default class Scene0 extends Phaser.Scene {
       ease: "Power1",
     });
 
-    // MUDANÇA: Arremessa o jogador fisicamente, mantendo inércia pra frente
     const impulse = fallSide * 400;
     if (this.carrierTravelDir === "UP" || this.carrierTravelDir === "DOWN") {
       this.player.body.setVelocityX(impulse);
@@ -223,15 +286,16 @@ export default class Scene0 extends Phaser.Scene {
   }
 
   attemptTurn(turnIntent) {
-    if (this.isGameOver) return;
+    if (this.isGameOver || this.isDoingTrick) return;
     this.leanDirection = turnIntent;
   }
 
   generateTrackPiece() {
     let type = "way_f";
 
-    let minS = this.speed > 800 ? 0 : this.speed > 600 ? 1 : 2;
-    let cChance = 0.4 + (this.speed - 400) / 800;
+    // O INFERNO DE CURVAS (70% de chance de bater com tudo numa parede)
+    let minS = this.speed > 800 ? 0 : 1;
+    let cChance = 0.7;
 
     if (this.justTurned) {
       type = "way_f";
@@ -318,24 +382,31 @@ export default class Scene0 extends Phaser.Scene {
 
     const dtSeconds = delta / 1000;
 
-    // --- LÓGICA DO JOGADOR (Apenas se ainda estiver vivo) ---
     if (!this.isGameOver) {
       this.timeElapsed += dtSeconds;
-      this.speed = Math.min(900, 400 + 500 * (this.timeElapsed / this.maxTime));
+
+      // Velocidade máxima insana em muito pouco tempo
+      this.speed = Math.min(1200, 550 + 650 * (this.timeElapsed / 40));
 
       let remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
-      let remainingDistance = Math.floor(remainingTime * 100);
-      this.distanceText.setText(`${remainingDistance}`);
+      this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
 
+      // Verifica o FIM DO JOGO apenas quando o relógio zera
       if (remainingTime <= 0) {
         this.isGameOver = true;
+        this.carrier.setVelocity(0, 0); // Para a nave no final
         this.tweens.add({
           targets: this.bgMusic,
           volume: 0,
           duration: 1000,
           onComplete: () => {
             this.bgMusic.stop();
-            this.scene.start("win");
+            // Sobreviveu e fez os pontos? Ganhou! Se não, Perdeu!
+            if (this.score >= this.targetScore) {
+              this.scene.start("win");
+            } else {
+              this.scene.start("gameover");
+            }
           },
         });
       }
@@ -357,7 +428,6 @@ export default class Scene0 extends Phaser.Scene {
         this.player.setFrame(1);
       }
 
-      // MUDANÇA: Offset (deslocamento) do sprite conforme ele se inclina
       const maxOffset = 18;
       const shift = (this.playerLeanAngle / 30) * maxOffset;
       let offX = 0,
@@ -369,20 +439,19 @@ export default class Scene0 extends Phaser.Scene {
       else if (this.carrierTravelDir === "LEFT") offY = -shift;
 
       this.player.setPosition(this.carrier.x + offX, this.carrier.y + offY);
-      this.player.setRotation(
-        this.carrier.rotation + Phaser.Math.DegToRad(this.playerLeanAngle),
-      );
+
+      if (!this.isDoingTrick) {
+        this.player.setRotation(
+          this.carrier.rotation + Phaser.Math.DegToRad(this.playerLeanAngle),
+        );
+      }
     }
 
-    // --- LÓGICA DA NAVE / TRILHA (Sempre executa!) ---
-
-    // 1. Movimento constante da Nave
     const v = { UP: [0, -1], DOWN: [0, 1], LEFT: [-1, 0], RIGHT: [1, 0] }[
       this.carrierTravelDir
     ];
     this.carrier.setVelocity(v[0] * this.speed, v[1] * this.speed);
 
-    // 2. Animação do Background
     this.bgStars.tilePositionX = this.cameras.main.scrollX * 0.1;
     this.bgStars.tilePositionY = this.cameras.main.scrollY * 0.1;
 
@@ -401,23 +470,22 @@ export default class Scene0 extends Phaser.Scene {
       a.y += a.driftY * dtSeconds;
     }
 
-    // 3. Geração infinita da pista
+    // Aumentado para 2500 para gerar as peças bem antes e tirar vantagem do zoom!
     if (
       Phaser.Math.Distance.Between(
         this.carrier.x,
         this.carrier.y,
         this.roadPieces[this.roadPieces.length - 1].x,
         this.roadPieces[this.roadPieces.length - 1].y,
-      ) < 1500
+      ) < 2500
     ) {
       this.generateTrackPiece();
     }
-    if (this.roadPieces.length > 40) this.roadPieces.shift().destroy();
+    // Aumentado para 60 para manter as peças desenhadas mais tempo na tela
+    if (this.roadPieces.length > 60) this.roadPieces.shift().destroy();
 
-    // 4. Verificação de curvas
     const cp = this.getPieceUnder(this.carrier);
 
-    // Jogador cai se inclinar no lugar errado (numa reta)
     if (
       !this.isGameOver &&
       cp &&
@@ -427,7 +495,6 @@ export default class Scene0 extends Phaser.Scene {
       this.triggerFall();
     }
 
-    // MUDANÇA: A Nave sempre obedece a curva automaticamente, independente do jogador
     if (cp && cp !== this.carrier.lastTurnedPiece && cp.trackType !== "way_f") {
       let passed =
         (this.carrierTravelDir === "UP" && this.carrier.y <= cp.y) ||
@@ -444,23 +511,19 @@ export default class Scene0 extends Phaser.Scene {
           DOWN: { RIGHT: "LEFT", LEFT: "RIGHT" },
         }[this.carrierTravelDir][requiredTurn];
 
-        // Rotação autônoma da Nave e Câmera
         this.carrierTravelDir = next;
         this.carrier.setPosition(cp.x, cp.y);
         this.carrier.lastTurnedPiece = cp;
         this.updateCameraRotation();
 
-        // O Jogador acompanhou a curva?
         if (!this.isGameOver) {
           if (this.leanDirection === requiredTurn) {
-            // SUCESSO - volta para a posição inicial no centro
             this.playerLeanAngle = 0;
             this.leanDirection = "NONE";
             this.player.setFrame(0);
             this.player.setFlipX(requiredTurn === "LEFT");
             this.sound.play("swoosh");
           } else {
-            // FALHA - O jogador é lançado
             this.triggerFall();
           }
         }
