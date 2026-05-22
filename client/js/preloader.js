@@ -9,7 +9,7 @@ class preloader extends Phaser.Scene {
       this.scale.lockOrientation("landscape");
     }
 
-    this.add.image(400, 225, "menu_bg.png");
+    this.add.image(400, 225, "menu_bg");
 
     this.add.rectangle(400, 300, 468, 32).setStrokeStyle(1, 0xffffff);
     const bar = this.add.rectangle(400 - 230, 300, 4, 28, 0xffffff);
@@ -66,7 +66,7 @@ class preloader extends Phaser.Scene {
       });
     } else {
       this.scene.stop("preloader");
-      this.scene.start("room");
+      this.scene.start("menu");
     }
   }
 }

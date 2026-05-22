@@ -13,7 +13,7 @@ export default class Start extends Phaser.Scene {
 
   preload() {
     this.load.setPath("assets/");
-    this.load.image("menu_bg.png");
+    this.load.image("menu_bg", "menu_bg.png");
   }
 
   create() {
