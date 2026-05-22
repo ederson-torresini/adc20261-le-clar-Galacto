@@ -1,6 +1,6 @@
 import config from "./config.js";
 import Scene0 from "./scene0.js";
-import Menu from "./menu.js";
+import Start from "./start.js";
 import preloader from "./preloader.js";
 import room from "./room.js";
 import GameOver from "./gameover.js";
@@ -9,13 +9,13 @@ import Win from "./win.js";
 class Game extends Phaser.Game {
   constructor() {
     super(config);
-    this.scene.add("menu", Menu);
+    this.scene.add("start", Start);
     this.scene.add("preloader", preloader);
     this.scene.add("room", room);
     this.scene.add("scene0", Scene0);
     this.scene.add("gameover", GameOver);
     this.scene.add("win", Win);
-    this.scene.start("menu");
+    this.scene.start("start");
 
     if (location.hostname.match(/localhost|127\.0\.0\.1/)) {
       this.socket = io("http://localhost:3000");

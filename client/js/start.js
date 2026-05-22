@@ -1,6 +1,6 @@
-export default class Menu extends Phaser.Scene {
+export default class Start extends Phaser.Scene {
   constructor() {
-    super("menu");
+    super("start");
   }
 
   init() {
@@ -33,7 +33,7 @@ export default class Menu extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.input.on("pointerdown", () => {
-      this.scene.stop("menu");
+      this.scene.stop("start");
       this.scene.start("preloader");
     });
   }

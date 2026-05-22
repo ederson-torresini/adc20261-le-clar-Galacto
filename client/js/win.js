@@ -21,8 +21,8 @@ export default class Win extends Phaser.Scene {
 
     this.input.on("pointerdown", () => {
       if (!this.game.isSpectator) {
-        this.game.socket.emit("change-scene", this.game.room, "menu");
-        this.scene.start("menu");
+        this.game.socket.emit("change-scene", this.game.room, "start");
+        this.scene.start("start");
       }
     });
   }
