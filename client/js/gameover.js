@@ -18,7 +18,10 @@ export default class Gameover extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.input.on("pointerdown", () => {
-      this.scene.start("scene0");
+      if (!this.game.isSpectator) {
+        this.game.socket.emit("change-scene", this.game.room, "scene0");
+        this.scene.start("scene0");
+      }
     });
   }
 }

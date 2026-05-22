@@ -38,6 +38,7 @@ class room extends Phaser.Scene {
 
       startBtn.on("pointerdown", () => {
         if (this.qrcodeContainer) this.qrcodeContainer.remove();
+        this.game.socket.emit("start-game", this.game.room);
         this.scene.stop("room");
         this.scene.start("scene0");
       });

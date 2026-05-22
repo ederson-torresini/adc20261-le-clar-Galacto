@@ -43,14 +43,29 @@ class preloader extends Phaser.Scene {
   }
 
   create() {
-    this.scene.stop("preloader");
-
     if (this.game.room) {
-      // JOGADOR 2+ (Entrou via QR Code): Vira espectador!
+      // JOGADOR 2+ (Entrou via QR Code): Vira espectador e espera o host iniciar.
       this.game.isSpectator = true;
-      this.scene.start("scene0");
+
+      const { width, height } = this.scale;
+      this.add
+        .text(
+          width / 2,
+          height / 2,
+          "Aguardando o primeiro jogador iniciar...",
+          {
+            fontSize: "28px",
+            fill: "#ffffff",
+            fontFamily: "MinhaFontePersonalizada",
+          },
+        )
+        .setOrigin(0.5);
+
+      this.game.socket.on("start-game", () => {
+        this.scene.start("scene0");
+      });
     } else {
-      // JOGADOR 1 (Host): Vai para a tela criar a sala
+      this.scene.stop("preloader");
       this.scene.start("room");
     }
   }

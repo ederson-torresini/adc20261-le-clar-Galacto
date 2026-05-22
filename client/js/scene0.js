@@ -6,6 +6,9 @@ export default class Scene0 extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.worldLayer = this.add.group();
+    this.random = new Phaser.Math.RandomDataGenerator([
+      this.game.room || "default",
+    ]);
 
     this.cameras.main.setBackgroundColor(0x080a29);
 
@@ -13,9 +16,9 @@ export default class Scene0 extends Phaser.Scene {
     graphics.fillStyle(0xffffff, 0.8);
     for (let i = 0; i < 200; i++) {
       graphics.fillCircle(
-        Phaser.Math.Between(0, 512),
-        Phaser.Math.Between(0, 512),
-        Math.random() * 2,
+        this.random.integerInRange(0, 512),
+        this.random.integerInRange(0, 512),
+        this.random.realInRange(0, 2),
       );
     }
     graphics.generateTexture("starfield", 512, 512);
@@ -110,20 +113,40 @@ export default class Scene0 extends Phaser.Scene {
 
       if (pointer.y < 150) {
         this.startTrick();
+        this.game.socket.emit("player-action", this.game.room, {
+          type: "trick",
+        });
         return;
       }
 
       const isRight = pointer.x > width / 2;
-      this.attemptTurn(isRight ? "RIGHT" : "LEFT");
+      const turn = isRight ? "RIGHT" : "LEFT";
+      this.attemptTurn(turn);
+      this.game.socket.emit("player-action", this.game.room, {
+        type: "turn",
+        data: { turn },
+      });
     });
 
     this.game.socket.on("scene0", (state) => {
-      if (state.gravity) {
+      if (!this.game.isSpectator) return;
+      if (!state || typeof state !== "object") return;
+      if ("gravity" in state && state.gravity != null) {
         this.physics.world.gravity.y = state.gravity;
-        this.player.setFlipY(this.physics.world.gravity.y < 0);
       }
-      // Aqui os seus scripts extras de replicação do servidor continuam funcionando normalmente!
+      this.lastHostState = state;
     });
+
+    if (this.game.isSpectator) {
+      this.input.enabled = false;
+    }
+  }
+
+  endGame(sceneKey) {
+    if (!this.game.isSpectator) {
+      this.game.socket.emit("change-scene", this.game.room, sceneKey);
+    }
+    this.scene.start(sceneKey);
   }
 
   startTrick() {
@@ -214,25 +237,25 @@ export default class Scene0 extends Phaser.Scene {
 
   spawnAsteroidNear(x, y) {
     for (let i = 0; i < 4; i++) {
-      if (Math.random() > 0.7) continue;
-      const type = Phaser.Math.RND.pick(["aster_1", "aster_2", "aster_3"]);
-      const radius = Phaser.Math.Between(
+      if (this.random.frac() > 0.7) continue;
+      const type = this.random.pick(["aster_1", "aster_2", "aster_3"]);
+      const radius = this.random.integerInRange(
         this.gridSize * 1.5,
         this.gridSize * 5,
       );
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const angle = this.random.realInRange(0, Math.PI * 2);
       const aster = this.add.image(
         x + Math.cos(angle) * radius,
         y + Math.sin(angle) * radius,
         type,
       );
       aster
-        .setScale(Phaser.Math.FloatBetween(1.5, 3.5))
-        .setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2))
+        .setScale(this.random.realInRange(1.5, 3.5))
+        .setRotation(this.random.realInRange(0, Math.PI * 2))
         .setDepth(0);
-      aster.rotSpeed = Phaser.Math.FloatBetween(-0.5, 0.5);
-      aster.driftX = Phaser.Math.FloatBetween(-10, 10);
-      aster.driftY = Phaser.Math.FloatBetween(-10, 10);
+      aster.rotSpeed = this.random.realInRange(-0.5, 0.5);
+      aster.driftX = this.random.realInRange(-10, 10);
+      aster.driftY = this.random.realInRange(-10, 10);
       this.asteroids.push(aster);
       this.worldLayer.add(aster);
     }
@@ -247,7 +270,7 @@ export default class Scene0 extends Phaser.Scene {
         ? this.playerLeanAngle > 0
           ? 1
           : -1
-        : Math.random() > 0.5
+        : this.random.frac() > 0.5
           ? 1
           : -1;
 
@@ -277,7 +300,7 @@ export default class Scene0 extends Phaser.Scene {
 
     this.time.delayedCall(1200, () => {
       this.bgMusic.stop();
-      this.scene.start("gameover");
+      this.endGame("gameover");
     });
   }
 
@@ -297,10 +320,10 @@ export default class Scene0 extends Phaser.Scene {
       this.straightPiecesCount = 1;
     } else {
       this.straightPiecesCount++;
-      if (this.straightPiecesCount > minS && Math.random() < cChance) {
+      if (this.straightPiecesCount > minS && this.random.frac() < cChance) {
         if (this.turnHistory > 0) type = "way_l";
         else if (this.turnHistory < 0) type = "way_r";
-        else type = Math.random() < 0.5 ? "way_l" : "way_r";
+        else type = this.random.frac() < 0.5 ? "way_l" : "way_r";
 
         this.turnHistory += type === "way_r" ? 1 : -1;
         this.justTurned = true;
@@ -362,24 +385,82 @@ export default class Scene0 extends Phaser.Scene {
 
   update(time, delta) {
     try {
-      this.game.socket.emit("scene0", this.game.room, {
-        player: {
-          x: this.player.body.velocity.x,
-          y: this.player.body.velocity.y,
-          key: this.player.anims.currentAnim?.key || null,
-          frame: this.player.anims.currentFrame?.index || 0,
-        },
-      });
+      if (!this.game.isSpectator) {
+        this.game.socket.emit("scene0", this.game.room, {
+          gravity: this.physics.world.gravity.y,
+          carrier: {
+            x: this.carrier.x,
+            y: this.carrier.y,
+            angle: this.carrier.rotation,
+            travelDir: this.carrierTravelDir,
+          },
+          player: {
+            x: this.player.x,
+            y: this.player.y,
+            angle: this.player.rotation,
+            frame: this.player.frame.name || this.player.frame.index || 0,
+            flipX: this.player.flipX,
+            leanAngle: this.playerLeanAngle,
+            leanDirection: this.leanDirection,
+            isDoingTrick: this.isDoingTrick,
+            trickCooldown: this.trickCooldown,
+          },
+          score: this.score,
+          timeElapsed: this.timeElapsed,
+          speed: this.speed,
+          isGameOver: this.isGameOver,
+        });
+      }
     } catch (e) {
       console.error("Error updating player:", e);
     }
 
     const dtSeconds = delta / 1000;
 
-    if (!this.isGameOver) {
-      this.timeElapsed += dtSeconds;
+    let hostState = this.lastHostState;
+    if (this.game.isSpectator && hostState) {
+      if ("gravity" in hostState) {
+        this.physics.world.gravity.y = hostState.gravity;
+      }
+      this.carrier.setPosition(hostState.carrier.x, hostState.carrier.y);
+      this.carrier.rotation = hostState.carrier.angle;
+      this.carrierTravelDir = hostState.carrier.travelDir;
 
-      this.speed = Math.min(1200, 550 + 650 * (this.timeElapsed / 40));
+      this.player.setPosition(hostState.player.x, hostState.player.y);
+      this.player.rotation = hostState.player.angle;
+      this.player.setFlipX(hostState.player.flipX);
+      this.player.setFrame(hostState.player.frame);
+
+      this.playerLeanAngle = hostState.player.leanAngle;
+      this.leanDirection = hostState.player.leanDirection;
+      this.isDoingTrick = hostState.player.isDoingTrick;
+      this.trickCooldown = hostState.player.trickCooldown;
+
+      this.score = hostState.score;
+      this.timeElapsed = hostState.timeElapsed;
+      this.speed = hostState.speed;
+      this.isGameOver = hostState.isGameOver;
+
+      let remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
+      this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
+      this.scoreText.setText(`Pontos: ${this.score} / ${this.targetScore}`);
+
+      if (this.isGameOver) {
+        if (this.score >= this.targetScore) {
+          this.endGame("win");
+        } else {
+          this.endGame("gameover");
+        }
+        return;
+      }
+    }
+
+    if (!this.isGameOver) {
+      if (!this.game.isSpectator) {
+        this.timeElapsed += dtSeconds;
+
+        this.speed = Math.min(1200, 550 + 650 * (this.timeElapsed / 40));
+      }
 
       let remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
       this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
@@ -394,9 +475,9 @@ export default class Scene0 extends Phaser.Scene {
           onComplete: () => {
             this.bgMusic.stop();
             if (this.score >= this.targetScore) {
-              this.scene.start("win");
+              this.endGame("win");
             } else {
-              this.scene.start("gameover");
+              this.endGame("gameover");
             }
           },
         });

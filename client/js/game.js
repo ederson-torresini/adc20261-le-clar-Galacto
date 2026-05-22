@@ -29,13 +29,16 @@ class Game extends Phaser.Game {
       console.log("Socket ID:", this.socket.id);
 
       this.socket.on("change-scene", (scene) => {
-        let currentScene = this.scene.scenes.find((s) =>
-          s.scene.isActive(),
-        ).scene.key
+        const activeScenes = this.scene.getScenes(true);
+        activeScenes.forEach((s) => {
+          if (s.scene.key !== scene) {
+            this.scene.stop(s.scene.key);
+          }
+        });
+        const isAlreadyActive = activeScenes.some((s) => s.scene.key === scene);
 
-        if (currentScene !== scene) {
+        if (!isAlreadyActive) {
           console.log("Changing scene to:", scene);
-          this.scene.stop(currentScene);
           this.scene.start(scene);
         }
       });
