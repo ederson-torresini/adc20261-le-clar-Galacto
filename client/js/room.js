@@ -5,16 +5,41 @@ class room extends Phaser.Scene {
   }
 
   create() {
+    const { width, height } = this.scale;
+
     if (this.game.room) {
       this.scene.stop("room");
       this.scene.start("player");
     } else {
-      this.add.image(400, 225, "room-background");
+      this.add.image(width / 2, height / 2, "room-background");
+
       this.game.room = (Math.random() * 10000).toString().split(".")[0];
+
+      // Define que quem está nesta tela é o JOGADOR PRINCIPAL
+      this.game.isSpectator = false;
+
       this.add.text(50, 50, this.game.room, {
         fontFamily: "MinhaFontePersonalizada",
         fontSize: "32px",
         fill: "#7e7e7e",
+      });
+
+      // Botão menor, posicionado na lateral direita da tela
+      const startBtn = this.add
+        .text(width - 20, height / 2, "COMEÇAR ►", {
+          fontFamily: "MinhaFontePersonalizada",
+          fontSize: "18px",
+          fill: "#ffffff",
+          backgroundColor: "#000000",
+          padding: { x: 15, y: 10 },
+        })
+        .setOrigin(1, 0.5)
+        .setInteractive(); // O Origin 1, 0.5 ancora o botão na direita e no centro
+
+      startBtn.on("pointerdown", () => {
+        if (this.qrcodeContainer) this.qrcodeContainer.remove();
+        this.scene.stop("room");
+        this.scene.start("scene0");
       });
 
       new QRCode(this.qrcodeContainer, {
@@ -25,6 +50,7 @@ class room extends Phaser.Scene {
         colorLight: "#ffffff",
       });
     }
+
     console.log("Joining room:", this.game.room);
     this.game.socket.emit("join-room", this.game.room);
 
@@ -39,10 +65,10 @@ class room extends Phaser.Scene {
       if (player === "android") this.game.localPlayer = "character";
       else this.game.localPlayer = "android";
 
-      this.qrcodeContainer.remove();
+      if (this.qrcodeContainer) this.qrcodeContainer.remove();
 
       this.scene.stop("room");
-      
+
       this.scene.start("scene0");
     });
   }

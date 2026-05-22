@@ -4,6 +4,11 @@ class preloader extends Phaser.Scene {
   }
 
   init() {
+    // TRANCA A TELA EM MODO PAISAGEM (LANDSCAPE)
+    if (this.scale.lockOrientation) {
+      this.scale.lockOrientation("landscape");
+    }
+
     this.add.image(400, 225, "menu_bg.png");
 
     this.add.rectangle(400, 300, 468, 32).setStrokeStyle(1, 0xffffff);
@@ -16,32 +21,36 @@ class preloader extends Phaser.Scene {
 
   preload() {
     this.load.setPath("assets/");
-        this.load.image("logo", "pixel-art.png");
-        this.load.spritesheet("player", "player.png", {
-          frameWidth: 32,
-          frameHeight: 32,
-        });
-        this.load.image("way_f", "way_f.png");
-        this.load.image("way_l", "way_l.png");
-        this.load.image("way_r", "way_r.png");
-        this.load.image("spaceship_new", "spaceship_new.png");
-        this.load.audio("swoosh", "swoosh.mp3");
+    this.load.image("logo", "pixel-art.png");
+    this.load.spritesheet("player", "player.png", {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+    this.load.image("way_f", "way_f.png");
+    this.load.image("way_l", "way_l.png");
+    this.load.image("way_r", "way_r.png");
+    this.load.image("spaceship_new", "spaceship_new.png");
+    this.load.audio("swoosh", "swoosh.mp3");
 
-        this.load.audio("soundtrack", "soundtrack.mp3");
+    this.load.audio("soundtrack", "soundtrack.mp3");
 
-        this.load.image("aster_1", "aster_1.png");
-        this.load.image("aster_2", "aster_2.png");
-        this.load.image("aster_3", "aster_3.png");
-    
-        this.load.image("win_bg", "win_bg.png");
-        this.load.image("room-background", "room-background.png");
+    this.load.image("aster_1", "aster_1.png");
+    this.load.image("aster_2", "aster_2.png");
+    this.load.image("aster_3", "aster_3.png");
+
+    this.load.image("win_bg", "win_bg.png");
+    this.load.image("room-background", "room-background.png");
   }
 
   create() {
     this.scene.stop("preloader");
+
     if (this.game.room) {
+      // JOGADOR 2+ (Entrou via QR Code): Vira espectador!
+      this.game.isSpectator = true;
       this.scene.start("scene0");
     } else {
+      // JOGADOR 1 (Host): Vai para a tela criar a sala
       this.scene.start("room");
     }
   }
