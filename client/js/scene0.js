@@ -46,6 +46,12 @@ export default class Scene0 extends Phaser.Scene {
     this.justTurned = false;
     this.turnHistory = 0;
 
+    this.safeZoneActive = true;
+    this.safeZoneTime = 3; // seconds of safe start
+    this.safeZoneRemaining = this.safeZoneTime;
+    this.safeStraightPieces = 14; // force straight path at start
+    this.safeStraightGenerated = 0;
+
     this.speed = 550;
     this.maxTime = 90;
     this.timeElapsed = 0;
@@ -96,8 +102,18 @@ export default class Scene0 extends Phaser.Scene {
       .setDepth(100)
       .setScrollFactor(0);
 
+    this.safeZoneText = this.add
+      .text(30, 110, `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`, {
+        fontSize: "22px",
+        fill: "#00ff00",
+        fontFamily: "MinhaFontePersonalizada",
+      })
+      .setDepth(100)
+      .setScrollFactor(0);
+
     this.cameras.main.ignore(this.timeText);
     this.cameras.main.ignore(this.scoreText);
+    this.cameras.main.ignore(this.safeZoneText);
 
     this.cameras.main.startFollow(this.carrier, true, 0.1, 0.1);
     this.cameras.main.setZoom(0.75);
@@ -109,7 +125,8 @@ export default class Scene0 extends Phaser.Scene {
     // O PONTO CHAVE: Espectador não emite comandos
     this.input.on("pointerdown", (pointer) => {
       // Se for apenas espectador, ignora os cliques na tela
-      if (this.isGameOver || this.game.isSpectator) return;
+      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
+        return;
 
       if (pointer.y < 150) {
         this.startTrick();
@@ -152,6 +169,7 @@ export default class Scene0 extends Phaser.Scene {
   startTrick() {
     if (
       this.isGameOver ||
+      this.safeZoneActive ||
       this.isDoingTrick ||
       this.trickCooldown ||
       this.leanDirection !== "NONE"
@@ -305,7 +323,7 @@ export default class Scene0 extends Phaser.Scene {
   }
 
   attemptTurn(turnIntent) {
-    if (this.isGameOver || this.isDoingTrick) return;
+    if (this.isGameOver || this.safeZoneActive || this.isDoingTrick) return;
     this.leanDirection = turnIntent;
   }
 
@@ -314,7 +332,10 @@ export default class Scene0 extends Phaser.Scene {
     let minS = this.speed > 800 ? 0 : 1;
     let cChance = 0.7;
 
-    if (this.justTurned) {
+    if (this.safeStraightGenerated < this.safeStraightPieces) {
+      type = "way_f";
+      this.safeStraightGenerated++;
+    } else if (this.justTurned) {
       type = "way_f";
       this.justTurned = false;
       this.straightPiecesCount = 1;
@@ -456,6 +477,20 @@ export default class Scene0 extends Phaser.Scene {
     }
 
     if (!this.isGameOver) {
+      if (this.safeZoneActive) {
+        this.safeZoneRemaining = Math.max(
+          0,
+          this.safeZoneRemaining - dtSeconds,
+        );
+        this.safeZoneText.setText(
+          `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`,
+        );
+        if (this.safeZoneRemaining <= 0) {
+          this.safeZoneActive = false;
+          this.safeZoneText.destroy();
+        }
+      }
+
       if (!this.game.isSpectator) {
         this.timeElapsed += dtSeconds;
 
