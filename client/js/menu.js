@@ -53,10 +53,10 @@ export default class Menu extends Phaser.Scene {
       return { rect, txt };
     };
 
-    // Modo história (starts the game)
+    // Modo história (starts the game via room setup)
     createButton(width / 2, startY, "Modo história", () => {
       this.scene.stop("menu");
-      this.scene.start("scene0");
+      this.scene.start("room");
     });
 
     // Modo Infinito (only shown after at least one win)
