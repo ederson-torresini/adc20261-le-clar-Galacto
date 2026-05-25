@@ -12,7 +12,7 @@ export default class Win extends Phaser.Scene {
     this.add
       .text(width / 2, height * 0.4, "Venceu!", {
         fontSize: "40px",
-        fill: "#7e7e7e",
+        fill: "#9f88d8",
         fontStyle: "bold",
         fontFamily: "MinhaFontePersonalizada", // Borda removida aqui
       })

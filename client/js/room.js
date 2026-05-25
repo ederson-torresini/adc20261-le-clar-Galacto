@@ -21,7 +21,7 @@ class room extends Phaser.Scene {
       this.add.text(50, 50, this.game.room, {
         fontFamily: "MinhaFontePersonalizada",
         fontSize: "32px",
-        fill: "#7e7e7e",
+        fill: "#483048",
       });
 
       // Botão menor, posicionado na lateral direita da tela
@@ -30,7 +30,7 @@ class room extends Phaser.Scene {
           fontFamily: "MinhaFontePersonalizada",
           fontSize: "18px",
           fill: "#ffffff",
-          backgroundColor: "#000000",
+          backgroundColor: "#080a29",
           padding: { x: 15, y: 10 },
         })
         .setOrigin(1, 0.5)
