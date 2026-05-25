@@ -4,6 +4,8 @@ import Start from "./start.js";
 import preloader from "./preloader.js";
 import Menu from "./menu.js";
 import room from "./room.js";
+import NameEntry from "./nameentry.js";
+import Leaderboard from "./leaderboard.js";
 import GameOver from "./gameover.js";
 import Win from "./win.js";
 
@@ -14,6 +16,8 @@ class Game extends Phaser.Game {
     this.scene.add("preloader", preloader);
     this.scene.add("menu", Menu);
     this.scene.add("room", room);
+    this.scene.add("nameentry", NameEntry);
+    this.scene.add("leaderboard", Leaderboard);
     this.scene.add("scene0", Scene0);
     this.scene.add("gameover", GameOver);
     this.scene.add("win", Win);

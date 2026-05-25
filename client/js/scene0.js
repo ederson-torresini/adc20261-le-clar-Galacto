@@ -49,7 +49,7 @@ export default class Scene0 extends Phaser.Scene {
     this.safeZoneActive = true;
     this.safeZoneTime = 3; // seconds of safe start
     this.safeZoneRemaining = this.safeZoneTime;
-    this.safeStraightPieces = 14; // force straight path at start
+    this.safeStraightPieces = this.isInfiniteMode ? 14 : 20; // more initial straight pieces in story mode
     this.safeStraightGenerated = 0;
 
     this.speed = 550;
@@ -61,6 +61,10 @@ export default class Scene0 extends Phaser.Scene {
     this.targetScore = 1500;
     this.isDoingTrick = false;
     this.trickCooldown = false;
+
+    this.isInfiniteMode = !!this.game.isInfiniteMode;
+    this.maxTime = this.isInfiniteMode ? Infinity : 90;
+    this.targetScore = this.isInfiniteMode ? null : 1500;
 
     this.bgMusic = this.sound.add("soundtrack", { loop: true, volume: 0.5 });
     this.bgMusic.play();
@@ -85,25 +89,44 @@ export default class Scene0 extends Phaser.Scene {
     this.leanSpeed = 190;
 
     this.timeText = this.add
-      .text(30, 30, `Tempo: ${this.maxTime}s`, {
-        fontSize: "29px",
-        fill: "#ffffff",
-        fontFamily: "MinhaFontePersonalizada",
-      })
+      .text(
+        30,
+        30,
+        this.isInfiniteMode ? `Tempo: 0s` : `Tempo: ${this.maxTime}s`,
+        {
+          fontSize: "29px",
+          fill: "#ffffff",
+          fontFamily: "MinhaFontePersonalizada",
+        },
+      )
       .setDepth(100)
       .setScrollFactor(0);
 
     this.scoreText = this.add
-      .text(30, 70, `Pontos: 0 / ${this.targetScore}`, {
-        fontSize: "24px",
-        fill: "#ffff00",
+      .text(
+        30,
+        70,
+        this.isInfiniteMode ? `Pontos: 0` : `Pontos: 0 / ${this.targetScore}`,
+        {
+          fontSize: "24px",
+          fill: "#ffff00",
+          fontFamily: "MinhaFontePersonalizada",
+        },
+      )
+      .setDepth(100)
+      .setScrollFactor(0);
+
+    this.testHintText = this.add
+      .text(30, 105, "Pressione E para teste", {
+        fontSize: "16px",
+        fill: "#aaaaaa",
         fontFamily: "MinhaFontePersonalizada",
       })
       .setDepth(100)
       .setScrollFactor(0);
 
     this.safeZoneText = this.add
-      .text(30, 110, `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`, {
+      .text(30, 130, `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`, {
         fontSize: "22px",
         fill: "#00ff00",
         fontFamily: "MinhaFontePersonalizada",
@@ -113,6 +136,7 @@ export default class Scene0 extends Phaser.Scene {
 
     this.cameras.main.ignore(this.timeText);
     this.cameras.main.ignore(this.scoreText);
+    this.cameras.main.ignore(this.testHintText);
     this.cameras.main.ignore(this.safeZoneText);
 
     this.cameras.main.startFollow(this.carrier, true, 0.1, 0.1);
@@ -123,26 +147,108 @@ export default class Scene0 extends Phaser.Scene {
     this.uiCam.ignore([this.bgStars, this.worldLayer]);
 
     // O PONTO CHAVE: Espectador não emite comandos
+    // Use swipe-up for trick, taps for left/right turn
+    this.pointerGesture = { downX: 0, downY: 0, downTime: 0, moved: false };
+
     this.input.on("pointerdown", (pointer) => {
-      // Se for apenas espectador, ignora os cliques na tela
       if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
         return;
+      this.pointerGesture.downX = pointer.x;
+      this.pointerGesture.downY = pointer.y;
+      this.pointerGesture.downTime = performance.now();
+      this.pointerGesture.moved = false;
+    });
 
-      if (pointer.y < 150) {
+    this.input.on("pointermove", (pointer) => {
+      if (!this.pointerGesture.downTime) return;
+      const dx = Math.abs(pointer.x - this.pointerGesture.downX);
+      const dy = Math.abs(pointer.y - this.pointerGesture.downY);
+      if (dx > 10 || dy > 10) this.pointerGesture.moved = true;
+    });
+
+    this.input.on("pointerup", (pointer) => {
+      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive) {
+        this.pointerGesture.downTime = 0;
+        return;
+      }
+
+      const downX = this.pointerGesture.downX;
+      const downY = this.pointerGesture.downY;
+      const upX = pointer.x;
+      const upY = pointer.y;
+      const dx = upX - downX;
+      const dy = upY - downY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      const swipeThresh = 60; // pixels
+
+      // swipe up (downY - upY > threshold) and mostly vertical
+      if (downY - upY > swipeThresh && absDy > absDx) {
         this.startTrick();
         this.game.socket.emit("player-action", this.game.room, {
           type: "trick",
         });
-        return;
+      } else {
+        // treat as tap -> turn
+        const isRight = upX > width / 2;
+        const turn = isRight ? "RIGHT" : "LEFT";
+        this.attemptTurn(turn);
+        this.game.socket.emit("player-action", this.game.room, {
+          type: "turn",
+          data: { turn },
+        });
       }
 
-      const isRight = pointer.x > width / 2;
-      const turn = isRight ? "RIGHT" : "LEFT";
+      this.pointerGesture.downTime = 0;
+    });
+
+    this.input.keyboard.on("keydown-A", () => {
+      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
+        return;
+      const turn = "LEFT";
       this.attemptTurn(turn);
       this.game.socket.emit("player-action", this.game.room, {
         type: "turn",
         data: { turn },
       });
+    });
+
+    this.input.keyboard.on("keydown-D", () => {
+      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
+        return;
+      const turn = "RIGHT";
+      this.attemptTurn(turn);
+      this.game.socket.emit("player-action", this.game.room, {
+        type: "turn",
+        data: { turn },
+      });
+    });
+
+    this.input.keyboard.on("keydown-W", () => {
+      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
+        return;
+      this.startTrick();
+      this.game.socket.emit("player-action", this.game.room, {
+        type: "trick",
+      });
+    });
+
+    this.input.keyboard.on("keydown-E", () => {
+      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
+        return;
+
+      this.score = 1500;
+      if (this.isInfiniteMode) {
+        this.timeElapsed = 10;
+        this.timeText.setText(`Tempo: ${Math.ceil(this.timeElapsed)}s`);
+        this.scoreText.setText(`Pontos: ${this.score}`);
+      } else {
+        this.timeElapsed = Math.max(0, this.maxTime - 10);
+        const remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
+        this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
+        this.scoreText.setColor("#00ff00");
+        this.scoreText.setText(`Pontos: ${this.score} / ${this.targetScore}`);
+      }
     });
 
     this.game.socket.on("scene0", (state) => {
@@ -191,10 +297,14 @@ export default class Scene0 extends Phaser.Scene {
         this.isDoingTrick = false;
         this.score += 300;
 
-        if (this.score >= this.targetScore) {
-          this.scoreText.setColor("#00ff00");
+        if (!this.isInfiniteMode) {
+          if (this.score >= this.targetScore) {
+            this.scoreText.setColor("#00ff00");
+          }
+          this.scoreText.setText(`Pontos: ${this.score} / ${this.targetScore}`);
+        } else {
+          this.scoreText.setText(`Pontos: ${this.score}`);
         }
-        this.scoreText.setText(`Pontos: ${this.score} / ${this.targetScore}`);
 
         this.time.delayedCall(1000, () => {
           this.trickCooldown = false;
@@ -318,7 +428,16 @@ export default class Scene0 extends Phaser.Scene {
 
     this.time.delayedCall(1200, () => {
       this.bgMusic.stop();
-      this.endGame("gameover");
+      if (this.isInfiniteMode) {
+        // Save last infinite-mode result and go to name entry
+        this.game.lastInfiniteResult = {
+          score: this.score,
+          time: Math.ceil(this.timeElapsed),
+        };
+        this.scene.start("nameentry");
+      } else {
+        this.endGame("gameover");
+      }
     });
   }
 
@@ -329,8 +448,9 @@ export default class Scene0 extends Phaser.Scene {
 
   generateTrackPiece() {
     let type = "way_f";
-    let minS = this.speed > 800 ? 0 : 1;
-    let cChance = 0.7;
+    // Increase minimum straight pieces and reduce curve chance for story mode
+    let minS = this.speed > 800 ? 0 : this.isInfiniteMode ? 1 : 2;
+    let cChance = this.isInfiniteMode ? 0.7 : 0.45;
 
     if (this.safeStraightGenerated < this.safeStraightPieces) {
       type = "way_f";
@@ -497,25 +617,29 @@ export default class Scene0 extends Phaser.Scene {
         this.speed = Math.min(1200, 550 + 650 * (this.timeElapsed / 40));
       }
 
-      let remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
-      this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
+      if (this.isInfiniteMode) {
+        this.timeText.setText(`Tempo: ${Math.ceil(this.timeElapsed)}s`);
+      } else {
+        let remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
+        this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
 
-      if (remainingTime <= 0) {
-        this.isGameOver = true;
-        this.carrier.setVelocity(0, 0);
-        this.tweens.add({
-          targets: this.bgMusic,
-          volume: 0,
-          duration: 1000,
-          onComplete: () => {
-            this.bgMusic.stop();
-            if (this.score >= this.targetScore) {
-              this.endGame("win");
-            } else {
-              this.endGame("gameover");
-            }
-          },
-        });
+        if (remainingTime <= 0) {
+          this.isGameOver = true;
+          this.carrier.setVelocity(0, 0);
+          this.tweens.add({
+            targets: this.bgMusic,
+            volume: 0,
+            duration: 1000,
+            onComplete: () => {
+              this.bgMusic.stop();
+              if (this.score >= this.targetScore) {
+                this.endGame("win");
+              } else {
+                this.endGame("gameover");
+              }
+            },
+          });
+        }
       }
 
       // IMPORTANTE: Espectador não lê as intenções de movimento localmente (sincronizar pelo servidor idealmente)

@@ -5,13 +5,13 @@ export default class Menu extends Phaser.Scene {
 
   preload() {
     this.load.setPath("assets/");
-    this.load.image("menu_bg", "menu_bg.png");
+    this.load.image("phbg", "phbg.png");
   }
 
   create() {
     const { width, height } = this.scale;
 
-    this.bg = this.add.image(width / 2, height / 2, "menu_bg");
+    this.bg = this.add.image(width / 2, height / 2, "phbg");
     const bgScale = Math.max(width / this.bg.width, height / this.bg.height);
     this.bg.setScale(bgScale);
 
@@ -55,6 +55,7 @@ export default class Menu extends Phaser.Scene {
 
     // Modo história (starts the game via room setup)
     createButton(width / 2, startY, "Modo história", () => {
+      this.game.isInfiniteMode = false;
       this.scene.stop("menu");
       this.scene.start("room");
     });
@@ -69,14 +70,17 @@ export default class Menu extends Phaser.Scene {
 
     if (hasWon) {
       createButton(width / 2, startY + btnHeight + gap, "Modo Infinito", () => {
-        // intentionally left blank for now
+        this.game.isInfiniteMode = true;
+        this.scene.stop("menu");
+        this.scene.start("room");
       });
     }
 
     // Placar (does nothing for now)
     const placarY = startY + (hasWon ? 2 * (btnHeight + gap) : btnHeight + gap);
     createButton(width / 2, placarY, "Placar", () => {
-      // intentionally left blank for now
+      this.scene.stop("menu");
+      this.scene.start("leaderboard");
     });
   }
 }

@@ -39,6 +39,61 @@ io.on("connection", (socket) => {
     socket.to(room).emit("scene0", state);
   });
 
+  socket.on("submit-score", (data) => {
+    if (!data || typeof data !== "object") return;
+    const name = String(data.name || "Anônimo").slice(0, 16);
+    const points = Number(data.points) || 0;
+    const time = Number(data.time) || 0;
+    const now = Date.now();
+
+    if (!io.leaderboard) {
+      io.leaderboard = [];
+      io.leaderboardResetAt = now + 13 * 60 * 60 * 1000;
+    }
+
+    if (now >= io.leaderboardResetAt) {
+      io.leaderboard = [];
+      io.leaderboardResetAt = now + 13 * 60 * 60 * 1000;
+    }
+
+    io.leaderboard.push({ name, points, time, createdAt: now });
+    io.leaderboard.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return a.time - b.time;
+    });
+    if (io.leaderboard.length > 1000) {
+      io.leaderboard = io.leaderboard.slice(0, 1000);
+    }
+    io.emit(
+      "leaderboard-data",
+      io.leaderboard.slice(0, 10).map((entry) => ({
+        name: entry.name,
+        points: entry.points,
+        time: entry.time,
+      })),
+    );
+  });
+
+  socket.on("request-leaderboard", () => {
+    const now = Date.now();
+    if (!io.leaderboard) {
+      io.leaderboard = [];
+      io.leaderboardResetAt = now + 13 * 60 * 60 * 1000;
+    }
+    if (now >= io.leaderboardResetAt) {
+      io.leaderboard = [];
+      io.leaderboardResetAt = now + 13 * 60 * 60 * 1000;
+    }
+    socket.emit(
+      "leaderboard-data",
+      io.leaderboard.slice(0, 10).map((entry) => ({
+        name: entry.name,
+        points: entry.points,
+        time: entry.time,
+      })),
+    );
+  });
+
   socket.on("player-action", (room, action) => {
     socket.to(room).emit("player-action", action);
   });

@@ -5,8 +5,10 @@ export default class Gameover extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
-
-    this.add.rectangle(0, 0, width, height, 0x000000, 0.7).setOrigin(0);
+    this.bg = this.add.image(width / 2, height / 2, "phbg");
+    const bgScale = Math.max(width / this.bg.width, height / this.bg.height);
+    this.bg.setScale(bgScale);
+    this.add.rectangle(0, 0, width, height, 0x000000, 0.6).setOrigin(0);
 
     this.add
       .text(width / 2, height * 0.4, "GAME OVER", {
