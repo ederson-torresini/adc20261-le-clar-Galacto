@@ -1,15 +1,27 @@
+// Define e exporta a cena de Inserção de Nome (Name Entry), estendendo a classe Scene do Phaser
 export default class NameEntry extends Phaser.Scene {
   constructor() {
+    // Define o identificador único dessa cena como "nameentry"
     super("nameentry");
+    // Array para guardar os elementos HTML reais (input, botão) que serão criados por cima do jogo
     this.domElements = [];
+    // Variável para guardar a função que recalcula a posição das coisas quando a tela muda de tamanho
     this.resizeHandler = null;
   }
 
+  // Método executado ao criar a tela
   create() {
+    // Garante que não haja nenhum lixo HTML de execuções anteriores antes de começar
     this.cleanupDom();
+
+    // Pega as dimensões atuais da tela do jogo
     const { width, height } = this.scale;
+
+    // --- BLOCO: FUNDO E TEXTOS DO PHASER ---
+    // Cria um fundo escuro semi-transparente que cobre a tela toda
     this.add.rectangle(0, 0, width, height, 0x050717, 0.95).setOrigin(0);
 
+    // Adiciona o título da tela
     this.add
       .text(width / 2, height * 0.2, "Fim de jogo - Modo Infinito", {
         fontSize: "44px",
@@ -17,9 +29,13 @@ export default class NameEntry extends Phaser.Scene {
         fontFamily: "MinhaFontePersonalizada",
         fontStyle: "bold",
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5); // Centraliza
 
+    // Recupera os resultados da última partida do modo infinito salvos no objeto global 'game'
+    // Se por acaso não tiver nada, usa { score: 0, time: 0 } como segurança
     const result = this.game.lastInfiniteResult || { score: 0, time: 0 };
+
+    // Mostra a pontuação e o tempo que o jogador conseguiu
     this.add
       .text(
         width / 2,
@@ -27,12 +43,13 @@ export default class NameEntry extends Phaser.Scene {
         `Pontos: ${result.score}  ·  Tempo: ${result.time}s`,
         {
           fontSize: "28px",
-          fill: "#ffff00",
+          fill: "#ffff00", // Cor amarela para destaque
           fontFamily: "MinhaFontePersonalizada",
         },
       )
       .setOrigin(0.5);
 
+    // Texto de instrução para o input
     const inputLabel = this.add
       .text(width / 2, height * 0.42, "Digite seu nome:", {
         fontSize: "26px",
@@ -41,35 +58,42 @@ export default class NameEntry extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // --- BLOCO: CRIAÇÃO DE ELEMENTOS HTML (DOM) ---
+    // Como a digitação de texto no Phaser pode ser complicada (principalmente em celulares),
+    // é melhor criar elementos HTML reais e colocá-los "flutuando" por cima do jogo.
+
+    // 1. Cria o botão de "Enviar"
     const button = document.createElement("button");
     button.textContent = "Enviar";
     button.style.position = "absolute";
     button.style.padding = "14px 24px";
     button.style.fontSize = "18px";
     button.style.fontFamily = "MinhaFontePersonalizada, sans-serif";
-    button.style.background = "#6f5cf0";
+    button.style.background = "#6f5cf0"; // Cor roxa
     button.style.color = "#ffffff";
     button.style.border = "none";
-    button.style.borderRadius = "12px";
-    button.style.cursor = "pointer";
+    button.style.borderRadius = "12px"; // Bordas arredondadas
+    button.style.cursor = "pointer"; // Muda o cursor do mouse
     button.style.outline = "none";
 
+    // 2. Cria o campo de texto (Input)
     const input = document.createElement("input");
     input.type = "text";
     input.placeholder = "Seu nome";
-    input.maxLength = 16;
-    input.autocomplete = "off";
+    input.maxLength = 16; // Limita o tamanho do nome para não quebrar o placar
+    input.autocomplete = "off"; // Desativa sugestões automáticas do teclado
     input.style.position = "absolute";
     input.style.padding = "14px 16px";
     input.style.fontSize = "18px";
     input.style.fontFamily = "MinhaFontePersonalizada, sans-serif";
     input.style.border = "2px solid #ffffff";
     input.style.borderRadius = "12px";
-    input.style.background = "rgba(255,255,255,0.1)";
+    input.style.background = "rgba(255,255,255,0.1)"; // Fundo levemente transparente
     input.style.color = "#ffffff";
     input.style.outline = "none";
     input.style.width = "320px";
 
+    // 3. Cria um textinho informativo extra (também em HTML)
     const info = document.createElement("div");
     info.textContent = "Os melhores jogadores aparecem no placar por 13 horas.";
     info.style.position = "absolute";
@@ -79,85 +103,122 @@ export default class NameEntry extends Phaser.Scene {
     info.style.textAlign = "center";
     info.style.width = "360px";
 
+    // --- BLOCO: POSICIONAMENTO DINÂMICO DOS ELEMENTOS HTML ---
+    // Função que calcula exatamente onde os elementos HTML devem ficar em relação ao Canvas do jogo
     const updateDomPlacement = () => {
+      // Pega a posição e tamanho real do canvas do jogo na tela do navegador
       const rect = this.game.canvas.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height * 0.55;
+      const centerY = rect.top + rect.height * 0.55; // Posiciona um pouco abaixo do meio
+
+      // Ajusta as posições X e Y descontando a metade do tamanho de cada elemento para centralizá-los
       input.style.left = `${centerX - 160}px`;
       input.style.top = `${centerY - 28}px`;
+
       button.style.left = `${centerX - 55}px`;
       button.style.top = `${centerY + 52}px`;
+
       info.style.left = `${centerX - 180}px`;
       info.style.top = `${centerY + 110}px`;
     };
 
+    // Adiciona os elementos criados no corpo (body) do site
     document.body.appendChild(input);
     document.body.appendChild(button);
     document.body.appendChild(info);
+
+    // Guarda na lista para podermos apagar depois
     this.domElements.push(input, button, info);
+
+    // Roda a função de posicionar pela primeira vez
     updateDomPlacement();
 
+    // Se o usuário redimensionar a janela do navegador, recalcula a posição dos HTMLs
     this.resizeHandler = () => updateDomPlacement();
     window.addEventListener("resize", this.resizeHandler);
 
-    this.submitHandler = () => this.submitName(input.value.trim());
+    // --- BLOCO: EVENTOS DE ENVIO (CLICK E ENTER) ---
+    // Função que é chamada ao clicar no botão
+    this.submitHandler = () => this.submitName(input.value.trim()); // .trim() remove espaços em branco inúteis
+
+    // Função que escuta o teclado para enviar quando apertar a tecla "Enter"
     this.keydownHandler = (event) => {
       if (event.key === "Enter") {
         this.submitName(input.value.trim());
       }
     };
 
+    // Liga os eventos aos elementos HTML
     button.addEventListener("click", this.submitHandler);
     input.addEventListener("keydown", this.keydownHandler);
 
+    // Já deixa o campo de texto selecionado para o jogador só começar a digitar
     input.focus();
   }
 
+  // --- BLOCO: FUNÇÃO DE ENVIO PARA O SERVIDOR ---
   submitName(name) {
+    // Se o nome estiver vazio, não faz nada (bloqueia o envio)
     if (!name) return;
+
+    // Pega o resultado de novo
     const result = this.game.lastInfiniteResult || { score: 0, time: 0 };
+
+    // Função que envia o evento via WebSocket pro servidor
     this.scoreConnectHandler = () => {
       this.game.socket.emit("submit-score", {
-        name,
+        name, // O nome que o jogador digitou
         points: result.score,
         time: result.time,
       });
     };
 
+    // Verifica se a conexão com o servidor está ativa
     if (this.game.socket.connected) {
-      this.scoreConnectHandler();
+      this.scoreConnectHandler(); // Envia direto
       this.scoreConnectHandler = null;
     } else {
+      // Se não estiver, espera conectar primeiro antes de enviar
       this.game.socket.once("connect", this.scoreConnectHandler);
     }
 
+    // Limpa a tela (apaga os HTMLs) e manda o jogador para a tela de Placar
     this.cleanupDom();
     this.scene.start("leaderboard");
   }
 
+  // --- BLOCO: LIMPEZA DOS ELEMENTOS HTML (PREVENÇÃO DE BUGS E VAZAMENTOS) ---
+  // Esta função garante que os inputs não fiquem flutuando na tela quando a cena mudar
   cleanupDom() {
+    // Percorre todos os elementos HTML criados e os remove da página
     this.domElements.forEach((el) => {
       if (el && el.parentNode) {
         el.parentNode.removeChild(el);
       }
     });
-    this.domElements = [];
+    this.domElements = []; // Esvazia a lista
+
+    // Remove o evento de redimensionamento da janela do navegador
     if (this.resizeHandler) {
       window.removeEventListener("resize", this.resizeHandler);
       this.resizeHandler = null;
     }
+
+    // Remove o evento de aguardar conexão do socket (se tiver)
     if (this.scoreConnectHandler) {
       this.game.socket.off("connect", this.scoreConnectHandler);
       this.scoreConnectHandler = null;
     }
   }
 
+  // Método nativo do Phaser chamado ao parar/esconder a cena
   shutdown() {
-    this.cleanupDom();
+    this.cleanupDom(); // Garante a limpeza
   }
 
+  // Método nativo do Phaser chamado quando a cena é completamente destruída
   destroy() {
-    this.cleanupDom();
-    super.destroy();
+    this.cleanupDom(); // Garante a limpeza
+    super.destroy(); // Chama a destruição padrão da classe pai
   }
 }
