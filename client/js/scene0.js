@@ -122,15 +122,6 @@ export default class Scene0 extends Phaser.Scene {
       .setDepth(100)
       .setScrollFactor(0);
 
-    this.testHintText = this.add
-      .text(30, 105, "Pressione E para teste", {
-        fontSize: "16px",
-        fill: "#aaaaaa",
-        fontFamily: "MinhaFontePersonalizada",
-      })
-      .setDepth(100)
-      .setScrollFactor(0);
-
     this.safeZoneText = this.add
       .text(30, 130, `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`, {
         fontSize: "22px",
@@ -144,7 +135,6 @@ export default class Scene0 extends Phaser.Scene {
     this.cameras.main.ignore([
       this.timeText,
       this.scoreText,
-      this.testHintText,
       this.safeZoneText,
     ]);
 
@@ -237,32 +227,57 @@ export default class Scene0 extends Phaser.Scene {
       this.game.socket.emit("player-action", this.game.room, { type: "trick" });
     });
 
+    // BOTÃO DE TESTE (E)
     this.input.keyboard.on("keydown-E", () => {
-      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
-        return;
+      if (this.isGameOver || this.game.isSpectator) return;
       this.score = 1500;
       this.scoreText.setText(
         this.isInfiniteMode
           ? `Pontos: ${this.score}`
           : `Pontos: ${this.score} / ${this.targetScore}`,
       );
+      if (!this.isInfiniteMode) {
+        this.timeElapsed = this.maxTime - 5;
+        this.timeText.setText(`Tempo: 5s`);
+      }
     });
 
     // MULTIPLAYER SYNC
-    this.game.socket.on("scene0", (state) => {
+    this.leaderboardListener = (state) => {
       if (!this.game.isSpectator) return;
       if (!state || typeof state !== "object") return;
       if ("gravity" in state && state.gravity != null)
         this.physics.world.gravity.y = state.gravity;
       this.lastHostState = state;
-    });
+    };
+    this.game.socket.on("scene0", this.leaderboardListener);
+
+    // Adiciona evento de limpeza automática quando a cena fechar
+    this.events.on("shutdown", () => this.cleanup());
 
     if (this.game.isSpectator) this.input.enabled = false;
   }
 
+  // DESTRÓI A SALA E LIMPA OUVINTES ASSIM QUE O JOGADOR SAI DA CENA
+  cleanup() {
+    if (this.game.socket) {
+      // Força o envio para o servidor deletar/tirar o player da sala imediatamente
+      if (this.game.room) {
+        this.game.socket.emit("leave-room", this.game.room);
+        this.game.room = null; // Reseta a sala localmente para não reconectar errado
+      }
+      this.game.socket.off("scene0", this.leaderboardListener);
+    }
+    if (this.bgMusic) this.bgMusic.stop();
+  }
+
   endGame(sceneKey) {
-    if (!this.game.isSpectator)
+    if (!this.game.isSpectator && this.game.socket && this.game.room) {
       this.game.socket.emit("change-scene", this.game.room, sceneKey);
+    }
+
+    this.game.isSpectator = false;
+    this.cleanup();
     this.scene.start(sceneKey);
   }
 
@@ -283,10 +298,7 @@ export default class Scene0 extends Phaser.Scene {
     this.tweens.add({
       targets: this.player,
       angle: this.player.angle + 360,
-
-      // ATUALIZADO: 1100ms como você pediu
       duration: 1100,
-
       ease: "Cubic.easeOut",
       onComplete: () => {
         if (this.isGameOver) return;
@@ -397,7 +409,7 @@ export default class Scene0 extends Phaser.Scene {
     });
     this.tweens.add({ targets: this.bgMusic, volume: 0, duration: 1200 });
     this.time.delayedCall(1200, () => {
-      this.bgMusic.stop();
+      this.cleanup();
       if (this.isInfiniteMode) {
         this.game.lastInfiniteResult = {
           score: this.score,
@@ -494,7 +506,7 @@ export default class Scene0 extends Phaser.Scene {
   update(time, delta) {
     // SOCKET BROADCAST
     try {
-      if (!this.game.isSpectator) {
+      if (!this.game.isSpectator && this.game.socket && this.game.room) {
         this.game.socket.emit("scene0", this.game.room, {
           gravity: this.physics.world.gravity.y,
           carrier: {
@@ -540,15 +552,25 @@ export default class Scene0 extends Phaser.Scene {
 
       if (!this.game.isSpectator) {
         this.timeElapsed += dtSeconds;
-
-        // ALTERAÇÃO: Divisor mudou de 40 para 20. O jogo fica difícil 2x mais rápido.
         this.speed = Math.min(1200, 550 + 650 * (this.timeElapsed / 20));
 
+        const timeLeft = Math.max(0, this.maxTime - this.timeElapsed);
         this.timeText.setText(
           this.isInfiniteMode
             ? `Tempo: ${Math.ceil(this.timeElapsed)}s`
-            : `Tempo: ${Math.ceil(Math.max(0, this.maxTime - this.timeElapsed))}s`,
+            : `Tempo: ${Math.ceil(timeLeft)}s`,
         );
+
+        // LÓGICA DE VITÓRIA
+        if (!this.isInfiniteMode && timeLeft <= 0) {
+          this.isGameOver = true;
+          if (this.score >= this.targetScore) {
+            this.endGame("win");
+          } else {
+            this.endGame("gameover");
+          }
+          return;
+        }
       }
 
       if (this.leanDirection === "LEFT")

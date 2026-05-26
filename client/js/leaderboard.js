@@ -33,7 +33,7 @@ export default class Leaderboard extends Phaser.Scene {
       })
       .setOrigin(0.5); // setOrigin(0.5) garante que o texto fique centralizado nesse ponto
 
- // Cria o texto principal onde os jogadores e pontuações vão aparecer.
+    // Cria o texto principal onde os jogadores e pontuações vão aparecer.
     // Começa com "Carregando..." enquanto o servidor não envia os dados.
     this.entriesText = this.add
       .text(width / 2, height * 0.27, "Carregando...", {
@@ -136,11 +136,9 @@ export default class Leaderboard extends Phaser.Scene {
       return;
     }
 
-    // Pega apenas os 10 primeiros resultados (.slice(0, 10))
-    // Transforma (.map) cada objeto em uma linha de texto com posição, nome, pontos e tempo
-    // E depois junta tudo (.join) com duas quebras de linha entre cada registro (\n\n)
+    // Pega apenas os 5 primeiros resultados (.slice(0, 5))
     const formatted = this.leaderboard
-      .slice(0, 10)
+      .slice(0, 5)
       .map((entry, index) => {
         return `${index + 1}. ${entry.name} — ${entry.points} pts — ${entry.time}s`;
       })
