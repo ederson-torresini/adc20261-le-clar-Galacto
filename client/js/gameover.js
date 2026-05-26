@@ -18,7 +18,7 @@ export default class Gameover extends Phaser.Scene {
       // Subi a posição de 0.4 para 0.3 para abrir espaço para os botões!
       .text(width / 2, height * 0.3, "GAME OVER", {
         fontSize: "60px",
-        fill: "#7e7e7e",
+        fill: "#9f88d8",
         fontStyle: "bold",
         fontFamily: "MinhaFontePersonalizada",
       })

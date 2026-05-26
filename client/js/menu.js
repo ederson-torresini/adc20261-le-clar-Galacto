@@ -76,7 +76,7 @@ export default class Menu extends Phaser.Scene {
 
     // --- BLOCO: BOTÃO MODO HISTÓRIA ---
     // Cria o primeiro botão. Ao clicar, define o jogo como "não infinito" e vai para a sala de espera (room)
-    createButton(width / 2, startY, "Modo história", () => {
+    createButton(width / 2, startY, "Modo historia", () => {
       this.game.isInfiniteMode = false;
       this.scene.stop("menu");
       this.scene.start("room");
