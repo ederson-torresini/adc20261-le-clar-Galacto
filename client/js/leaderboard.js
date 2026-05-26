@@ -33,21 +33,7 @@ export default class Leaderboard extends Phaser.Scene {
       })
       .setOrigin(0.5); // setOrigin(0.5) garante que o texto fique centralizado nesse ponto
 
-    // Adiciona o texto de subtítulo explicativo
-    const info = this.add
-      .text(
-        width / 2,
-        height * 0.18,
-        "Melhor pontuação e tempo dos últimos 13 horas",
-        {
-          fontSize: "20px",
-          fill: "#c0c0ff",
-          fontFamily: "MinhaFontePersonalizada",
-        },
-      )
-      .setOrigin(0.5);
-
-    // Cria o texto principal onde os jogadores e pontuações vão aparecer.
+ // Cria o texto principal onde os jogadores e pontuações vão aparecer.
     // Começa com "Carregando..." enquanto o servidor não envia os dados.
     this.entriesText = this.add
       .text(width / 2, height * 0.27, "Carregando...", {
