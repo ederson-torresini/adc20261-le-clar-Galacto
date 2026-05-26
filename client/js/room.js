@@ -26,7 +26,7 @@ class room extends Phaser.Scene {
 
       // Botão menor, posicionado na lateral direita da tela
       const startBtn = this.add
-        .text(width - 20, height / 2, "COMEÇAR ►", {
+        .text(width - 20, height / 2, "COMECAR ►", {
           fontFamily: "MinhaFontePersonalizada",
           fontSize: "18px",
           fill: "#ffffff",

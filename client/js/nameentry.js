@@ -23,7 +23,7 @@ export default class NameEntry extends Phaser.Scene {
 
     // Adiciona o título da tela
     this.add
-      .text(width / 2, height * 0.2, "Fim de jogo - Modo Infinito", {
+      .text(width / 2, height * 0.2, "Fim de jogo", {
         fontSize: "44px",
         fill: "#ffffff",
         fontFamily: "MinhaFontePersonalizada",
@@ -95,7 +95,6 @@ export default class NameEntry extends Phaser.Scene {
 
     // 3. Cria um textinho informativo extra (também em HTML)
     const info = document.createElement("div");
-    info.textContent = "Os melhores jogadores aparecem no placar por 13 horas.";
     info.style.position = "absolute";
     info.style.color = "#d0d0ff";
     info.style.fontFamily = "MinhaFontePersonalizada, sans-serif";

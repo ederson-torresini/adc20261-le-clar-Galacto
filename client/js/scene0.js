@@ -1,27 +1,20 @@
-// Define e exporta a cena principal do jogo, estendendo a classe Scene do Phaser
 export default class Scene0 extends Phaser.Scene {
   constructor() {
-    // Define o identificador (chave) dessa cena como "scene0"
     super("scene0");
   }
 
   create() {
-    // Captura a largura e altura da tela do jogo
     const { width, height } = this.scale;
 
-    // Grupo que vai guardar os elementos do mundo do jogo (pista, jogador, asteroides)
     this.worldLayer = this.add.group();
 
-    // Cria um gerador de números aleatórios sincronizado usando a sala (room) como "semente" (seed)
     this.random = new Phaser.Math.RandomDataGenerator([
       this.game.room || "default",
     ]);
 
-    // Define a cor de fundo da câmera principal (um azul bem escuro)
     this.cameras.main.setBackgroundColor(0x080a29);
 
-    // --- BLOCO: CRIAÇÃO DO FUNDO ESTRELADO ---
-    // Cria um gráfico temporário para desenhar 200 estrelinhas (círculos brancos)
+    // --- FUNDO ESTRELADO ---
     const graphics = this.make.graphics({ x: 0, y: 0, add: false });
     graphics.fillStyle(0xffffff, 0.8);
     for (let i = 0; i < 200; i++) {
@@ -31,78 +24,64 @@ export default class Scene0 extends Phaser.Scene {
         this.random.realInRange(0, 2),
       );
     }
-    // Transforma esse desenho de estrelas em uma textura reutilizável chamada "starfield"
     graphics.generateTexture("starfield", 512, 512);
 
-    // Cria um fundo infinito (tileSprite) usando o "starfield", configurado para ficar no fundo (depth: -4)
+    const bgSize = Math.max(width, height) * 8;
+
     this.bgStars = this.add
-      .tileSprite(
-        width / 2,
-        height / 2,
-        Math.max(width, height) * 2,
-        Math.max(width, height) * 2,
-        "starfield",
-      )
-      .setScrollFactor(0) // Faz o fundo ficar fixo na tela para a câmera
+      .tileSprite(width / 2, height / 2, bgSize, bgSize, "starfield")
+      .setScrollFactor(0)
       .setDepth(-4);
 
-    // Arrays para guardar as peças da pista e os asteroides gerados
     this.roadPieces = [];
     this.asteroids = [];
 
-    // Calcula o tamanho que cada pedaço da pista deve ter baseado na largura da tela
     const texture = this.textures.get("way_f").getSourceImage();
     const roadScale = (width / texture.width) * 0.4;
     this.gridSize = Math.round(texture.height * roadScale);
 
-    // Variáveis de controle para a geração procedural da pista
-    this.trackCursor = { x: 0, y: 0, dir: "UP" }; // Posição e direção onde a próxima peça será criada
-    this.straightPiecesCount = 0; // Quantidade de peças retas seguidas já criadas
-    this.justTurned = false; // Flag para evitar curvas coladas uma na outra
-    this.turnHistory = 0; // Histórico para equilibrar curvas pra esquerda/direita
+    this.trackCursor = { x: 0, y: 0, dir: "UP" };
+    this.straightPiecesCount = 0;
+    this.justTurned = false;
+    this.turnHistory = 0;
 
-    // --- NOVO SISTEMA: EQUILÍBRIO DE MANOBRAS ---
-    this.piecesSinceLastWindow = 0; // Contador de blocos desde a última reta de descanso
-    this.forcedStraightRemaining = 0; // Quantos blocos retos ainda restam na janela atual
+    // SISTEMA DE EQUILÍBRIO DE MANOBRAS
+    this.piecesSinceLastWindow = 0;
+    this.forcedStraightRemaining = 0;
 
-    // --- BLOCO: ZONA SEGURA (SAFE ZONE) ---
+    // ZONA SEGURA
     this.safeZoneActive = true;
-    this.safeZoneTime = 3; // segundos de invencibilidade inicial
+    this.safeZoneTime = 3;
     this.safeZoneRemaining = this.safeZoneTime;
     this.safeStraightPieces = 10;
     this.safeStraightGenerated = 0;
 
-    // --- BLOCO: ATRIBUTOS DO JOGO E JOGADOR ---
-    this.speed = 550; // Velocidade inicial do jogador
-    this.maxTime = 90; // Tempo máximo de jogo no modo história
-    this.timeElapsed = 0; // Tempo que já passou
-    this.isGameOver = false; // Flag para saber se o jogo acabou
+    // ATRIBUTOS
+    this.speed = 550;
+    this.maxTime = 90;
+    this.timeElapsed = 0;
+    this.isGameOver = false;
 
-    this.score = 0; // Pontuação atual
-    this.targetScore = 1500; // Pontuação necessária para vencer no modo história
-    this.isDoingTrick = false; // Flag se o jogador está fazendo uma manobra
-    this.trickCooldown = false; // Tempo de recarga para não espamar manobras
+    this.score = 0;
+    this.targetScore = 1500;
+    this.isDoingTrick = false;
+    this.trickCooldown = false;
 
-    // Configurações do modo de jogo (História vs Infinito)
     this.isInfiniteMode = !!this.game.isInfiniteMode;
     this.maxTime = this.isInfiniteMode ? Infinity : 90;
     this.targetScore = this.isInfiniteMode ? null : 1500;
 
-    // Adiciona e dá play na música de fundo
     this.bgMusic = this.sound.add("soundtrack", { loop: true, volume: 0.5 });
     this.bgMusic.play();
 
-    // Gera a pista inicial na tela
     for (let i = 0; i < 80; i++) this.generateTrackPiece();
 
-    // --- BLOCO: ENTIDADES PRINCIPAIS (CARRIER E PLAYER) ---
     this.carrier = this.physics.add.sprite(0, 0, "spaceship_new").setDepth(9);
     this.carrier.setScale((this.gridSize / this.carrier.width) * 0.6);
     this.carrierTravelDir = "UP";
     this.carrier.lastTurnedPiece = null;
     this.worldLayer.add(this.carrier);
 
-    // Cria o sprite visual do jogador
     this.player = this.physics.add
       .sprite(0, 0, "player")
       .setDepth(10)
@@ -110,12 +89,11 @@ export default class Scene0 extends Phaser.Scene {
     this.player.setFrame(0);
     this.worldLayer.add(this.player);
 
-    // Controles de inclinação visual da nave do jogador
     this.playerLeanAngle = 0;
     this.leanDirection = "NONE";
     this.leanSpeed = 190;
 
-    // --- BLOCO: INTERFACE DE USUÁRIO (UI) ---
+    // UI TEXTS
     this.timeText = this.add
       .text(
         30,
@@ -162,20 +140,23 @@ export default class Scene0 extends Phaser.Scene {
       .setDepth(100)
       .setScrollFactor(0);
 
-    // --- BLOCO: CONFIGURAÇÃO DAS CÂMERAS ---
-    this.cameras.main.ignore(this.timeText);
-    this.cameras.main.ignore(this.scoreText);
-    this.cameras.main.ignore(this.testHintText);
-    this.cameras.main.ignore(this.safeZoneText);
+    // CÂMERAS
+    this.cameras.main.ignore([
+      this.timeText,
+      this.scoreText,
+      this.testHintText,
+      this.safeZoneText,
+    ]);
 
     this.cameras.main.startFollow(this.carrier, true, 0.1, 0.1);
     this.cameras.main.setZoom(0.4);
-    this.cameras.main.setFollowOffset(0, height * 0.6);
+
+    this.cameras.main.setFollowOffset(0, height * 1.0);
 
     this.uiCam = this.cameras.add(0, 0, width, height);
     this.uiCam.ignore([this.bgStars, this.worldLayer]);
 
-    // --- BLOCO: CONTROLES MOBILE (Toque e Arraste) ---
+    // CONTROLES MOBILE
     this.pointerGesture = { downX: 0, downY: 0, downTime: 0, moved: false };
 
     this.input.on("pointerdown", (pointer) => {
@@ -228,26 +209,24 @@ export default class Scene0 extends Phaser.Scene {
       this.pointerGesture.downTime = 0;
     });
 
-    // --- BLOCO: CONTROLES DE TECLADO ---
+    // CONTROLES DE TECLADO
     this.input.keyboard.on("keydown-A", () => {
       if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
         return;
-      const turn = "LEFT";
-      this.attemptTurn(turn);
+      this.attemptTurn("LEFT");
       this.game.socket.emit("player-action", this.game.room, {
         type: "turn",
-        data: { turn },
+        data: { turn: "LEFT" },
       });
     });
 
     this.input.keyboard.on("keydown-D", () => {
       if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
         return;
-      const turn = "RIGHT";
-      this.attemptTurn(turn);
+      this.attemptTurn("RIGHT");
       this.game.socket.emit("player-action", this.game.room, {
         type: "turn",
-        data: { turn },
+        data: { turn: "RIGHT" },
       });
     });
 
@@ -255,48 +234,35 @@ export default class Scene0 extends Phaser.Scene {
       if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
         return;
       this.startTrick();
-      this.game.socket.emit("player-action", this.game.room, {
-        type: "trick",
-      });
+      this.game.socket.emit("player-action", this.game.room, { type: "trick" });
     });
 
     this.input.keyboard.on("keydown-E", () => {
       if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
         return;
-
       this.score = 1500;
-      if (this.isInfiniteMode) {
-        this.timeElapsed = 10;
-        this.timeText.setText(`Tempo: ${Math.ceil(this.timeElapsed)}s`);
-        this.scoreText.setText(`Pontos: ${this.score}`);
-      } else {
-        this.timeElapsed = Math.max(0, this.maxTime - 10);
-        const remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
-        this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
-        this.scoreText.setColor("#00ff00");
-        this.scoreText.setText(`Pontos: ${this.score} / ${this.targetScore}`);
-      }
+      this.scoreText.setText(
+        this.isInfiniteMode
+          ? `Pontos: ${this.score}`
+          : `Pontos: ${this.score} / ${this.targetScore}`,
+      );
     });
 
+    // MULTIPLAYER SYNC
     this.game.socket.on("scene0", (state) => {
       if (!this.game.isSpectator) return;
       if (!state || typeof state !== "object") return;
-
-      if ("gravity" in state && state.gravity != null) {
+      if ("gravity" in state && state.gravity != null)
         this.physics.world.gravity.y = state.gravity;
-      }
       this.lastHostState = state;
     });
 
-    if (this.game.isSpectator) {
-      this.input.enabled = false;
-    }
+    if (this.game.isSpectator) this.input.enabled = false;
   }
 
   endGame(sceneKey) {
-    if (!this.game.isSpectator) {
+    if (!this.game.isSpectator)
       this.game.socket.emit("change-scene", this.game.room, sceneKey);
-    }
     this.scene.start(sceneKey);
   }
 
@@ -317,24 +283,22 @@ export default class Scene0 extends Phaser.Scene {
     this.tweens.add({
       targets: this.player,
       angle: this.player.angle + 360,
-      duration: 1400,
+
+      // ATUALIZADO: 1100ms como você pediu
+      duration: 1100,
+
       ease: "Cubic.easeOut",
       onComplete: () => {
         if (this.isGameOver) return;
-
         this.isDoingTrick = false;
         this.score += 300;
+        this.scoreText.setText(
+          this.isInfiniteMode
+            ? `Pontos: ${this.score}`
+            : `Pontos: ${this.score} / ${this.targetScore}`,
+        );
 
-        if (!this.isInfiniteMode) {
-          if (this.score >= this.targetScore) {
-            this.scoreText.setColor("#00ff00");
-          }
-          this.scoreText.setText(`Pontos: ${this.score} / ${this.targetScore}`);
-        } else {
-          this.scoreText.setText(`Pontos: ${this.score}`);
-        }
-
-        this.time.delayedCall(1000, () => {
+        this.time.delayedCall(200, () => {
           this.trickCooldown = false;
         });
       },
@@ -348,8 +312,7 @@ export default class Scene0 extends Phaser.Scene {
     else if (this.carrierTravelDir === "DOWN") targetCamRad = -Math.PI;
     else if (this.carrierTravelDir === "LEFT") targetCamRad = Math.PI / 2;
 
-    const camDur = Math.max(120, 250 - (this.speed - 250) * 0.2);
-
+    const camDur = 250;
     const currentCamRad = this.cameras.main.rotation;
     let camDiff = Math.atan2(
       Math.sin(targetCamRad - currentCamRad),
@@ -361,7 +324,7 @@ export default class Scene0 extends Phaser.Scene {
       duration: camDur,
     });
 
-    let dist = this.scale.height * 0.6;
+    let dist = this.scale.height * 1.0;
     let offX = 0,
       offY = 0;
     if (this.carrierTravelDir === "UP") offY = dist;
@@ -376,9 +339,12 @@ export default class Scene0 extends Phaser.Scene {
       duration: camDur,
     });
 
-    let shipTargetRad = targetCamRad === 0 ? 0 : -targetCamRad;
-    if (this.carrierTravelDir === "DOWN") shipTargetRad = Math.PI;
-
+    let shipTargetRad =
+      this.carrierTravelDir === "DOWN"
+        ? Math.PI
+        : targetCamRad === 0
+          ? 0
+          : -targetCamRad;
     const currentShipRad = this.carrier.rotation;
     let shipDiff = Math.atan2(
       Math.sin(shipTargetRad - currentShipRad),
@@ -395,26 +361,18 @@ export default class Scene0 extends Phaser.Scene {
     for (let i = 0; i < 4; i++) {
       if (this.random.frac() > 0.7) continue;
       const type = this.random.pick(["aster_1", "aster_2", "aster_3"]);
-      const radius = this.random.integerInRange(
-        this.gridSize * 1.5,
-        this.gridSize * 5,
-      );
-      const angle = this.random.realInRange(0, Math.PI * 2);
-
       const aster = this.add.image(
-        x + Math.cos(angle) * radius,
-        y + Math.sin(angle) * radius,
+        x + this.random.integerInRange(-500, 500),
+        y + this.random.integerInRange(-500, 500),
         type,
       );
       aster
         .setScale(this.random.realInRange(1.5, 3.5))
         .setRotation(this.random.realInRange(0, Math.PI * 2))
         .setDepth(0);
-
       aster.rotSpeed = this.random.realInRange(-0.5, 0.5);
       aster.driftX = this.random.realInRange(-10, 10);
       aster.driftY = this.random.realInRange(-10, 10);
-
       this.asteroids.push(aster);
       this.worldLayer.add(aster);
     }
@@ -423,7 +381,6 @@ export default class Scene0 extends Phaser.Scene {
   triggerFall() {
     if (this.isGameOver) return;
     this.isGameOver = true;
-
     const fallSide =
       this.playerLeanAngle !== 0
         ? this.playerLeanAngle > 0
@@ -432,31 +389,13 @@ export default class Scene0 extends Phaser.Scene {
         : this.random.frac() > 0.5
           ? 1
           : -1;
-
     this.player.setFrame(2);
-
     this.tweens.add({
       targets: this.player,
       angle: this.player.angle + fallSide * 180,
       duration: 1200,
-      ease: "Power1",
     });
-
-    const impulse = fallSide * 400;
-    if (this.carrierTravelDir === "UP" || this.carrierTravelDir === "DOWN") {
-      this.player.body.setVelocityX(impulse);
-      this.player.body.setVelocityY(this.carrier.body.velocity.y);
-    } else {
-      this.player.body.setVelocityY(impulse);
-      this.player.body.setVelocityX(this.carrier.body.velocity.x);
-    }
-
-    this.tweens.add({
-      targets: this.bgMusic,
-      volume: 0,
-      duration: 1200,
-    });
-
+    this.tweens.add({ targets: this.bgMusic, volume: 0, duration: 1200 });
     this.time.delayedCall(1200, () => {
       this.bgMusic.stop();
       if (this.isInfiniteMode) {
@@ -476,64 +415,41 @@ export default class Scene0 extends Phaser.Scene {
     this.leanDirection = turnIntent;
   }
 
-  // MODIFICAÇÃO: Lógica procedural alterada para garantir janelas de manobra justas
   generateTrackPiece() {
     let type = "way_f";
-    let minS = this.speed > 800 ? 0 : this.isInfiniteMode ? 1 : 2;
-    let cChance = this.isInfiniteMode ? 0.7 : 0.45;
-
-    // 1. Zona Segura Inicial
     if (this.safeStraightGenerated < this.safeStraightPieces) {
-      type = "way_f";
       this.safeStraightGenerated++;
-    }
-    // 2. Janela de Manobra ativa (Força reta matematicamente calculada)
-    else if (this.forcedStraightRemaining > 0) {
-      type = "way_f";
+    } else if (this.forcedStraightRemaining > 0) {
       this.forcedStraightRemaining--;
-      if (this.forcedStraightRemaining === 0) {
-        this.justTurned = true; // Impede curva colada logo após o fim da janela
-      }
-    }
-    // 3. Recuperação padrão após uma curva
-    else if (this.justTurned) {
-      type = "way_f";
+      if (this.forcedStraightRemaining === 0) this.justTurned = true;
+    } else if (this.justTurned) {
       this.justTurned = false;
       this.straightPiecesCount = 1;
       this.piecesSinceLastWindow++;
-    }
-    // 4. Geração Randômica Geral
-    else {
+    } else {
       this.straightPiecesCount++;
       this.piecesSinceLastWindow++;
-
-      // Ativa a garantia de manobra a cada 28 blocos normais percorridos
       if (this.piecesSinceLastWindow >= 28) {
-        // Calcula dinamicamente o espaço baseado na velocidade (Manobra dura 1.4s + margem de folga)
-        const requiredDistance = this.speed * 1.6;
         this.forcedStraightRemaining = Math.ceil(
-          requiredDistance / this.gridSize,
+          (this.speed * 1.6) / this.gridSize,
         );
         this.piecesSinceLastWindow = 0;
-
         type = "way_f";
-        this.forcedStraightRemaining--; // Desconta o bloco atual gerado
-      }
-      // Se não for hora da janela de manobra, sorteia curvas normalmente
-      else if (
-        this.straightPiecesCount > minS &&
-        this.random.frac() < cChance
-      ) {
-        if (this.turnHistory > 0) type = "way_l";
-        else if (this.turnHistory < 0) type = "way_r";
-        else type = this.random.frac() < 0.5 ? "way_l" : "way_r";
-
+        this.forcedStraightRemaining--;
+      } else if (this.straightPiecesCount > 2 && this.random.frac() < 0.45) {
+        type =
+          this.turnHistory > 0
+            ? "way_l"
+            : this.turnHistory < 0
+              ? "way_r"
+              : this.random.frac() < 0.5
+                ? "way_l"
+                : "way_r";
         this.turnHistory += type === "way_r" ? 1 : -1;
         this.justTurned = true;
       }
     }
 
-    // Cria o bloco visualmente
     const piece = this.add
       .image(this.trackCursor.x, this.trackCursor.y, type)
       .setDisplaySize(this.gridSize, this.gridSize)
@@ -543,52 +459,40 @@ export default class Scene0 extends Phaser.Scene {
     this.worldLayer.add(piece);
     this.spawnAsteroidNear(piece.x, piece.y);
 
-    // Ajusta o cursor para a próxima peça
     let angle = 0;
     if (this.trackCursor.dir === "UP") {
       if (type === "way_f") this.trackCursor.y -= this.gridSize;
-      else if (type === "way_l") {
-        this.trackCursor.dir = "LEFT";
-        this.trackCursor.x -= this.gridSize;
-      } else {
-        this.trackCursor.dir = "RIGHT";
-        this.trackCursor.x += this.gridSize;
+      else {
+        this.trackCursor.dir = type === "way_l" ? "LEFT" : "RIGHT";
+        this.trackCursor.x += type === "way_l" ? -this.gridSize : this.gridSize;
       }
     } else if (this.trackCursor.dir === "RIGHT") {
       angle = 90;
       if (type === "way_f") this.trackCursor.x += this.gridSize;
-      else if (type === "way_l") {
-        this.trackCursor.dir = "UP";
-        this.trackCursor.y -= this.gridSize;
-      } else {
-        this.trackCursor.dir = "DOWN";
-        this.trackCursor.y += this.gridSize;
+      else {
+        this.trackCursor.dir = type === "way_l" ? "UP" : "DOWN";
+        this.trackCursor.y += type === "way_l" ? -this.gridSize : this.gridSize;
       }
     } else if (this.trackCursor.dir === "LEFT") {
       angle = -90;
       if (type === "way_f") this.trackCursor.x -= this.gridSize;
-      else if (type === "way_l") {
-        this.trackCursor.dir = "DOWN";
-        this.trackCursor.y += this.gridSize;
-      } else {
-        this.trackCursor.dir = "UP";
-        this.trackCursor.y -= this.gridSize;
+      else {
+        this.trackCursor.dir = type === "way_l" ? "DOWN" : "UP";
+        this.trackCursor.y += type === "way_l" ? this.gridSize : -this.gridSize;
       }
     } else if (this.trackCursor.dir === "DOWN") {
       angle = 180;
       if (type === "way_f") this.trackCursor.y += this.gridSize;
-      else if (type === "way_l") {
-        this.trackCursor.dir = "RIGHT";
-        this.trackCursor.x += this.gridSize;
-      } else {
-        this.trackCursor.dir = "LEFT";
-        this.trackCursor.x -= this.gridSize;
+      else {
+        this.trackCursor.dir = type === "way_l" ? "RIGHT" : "LEFT";
+        this.trackCursor.x += type === "way_l" ? this.gridSize : -this.gridSize;
       }
     }
     piece.setAngle(angle);
   }
 
   update(time, delta) {
+    // SOCKET BROADCAST
     try {
       if (!this.game.isSpectator) {
         this.game.socket.emit("scene0", this.game.room, {
@@ -603,12 +507,11 @@ export default class Scene0 extends Phaser.Scene {
             x: this.player.x,
             y: this.player.y,
             angle: this.player.rotation,
-            frame: this.player.frame.name || this.player.frame.index || 0,
+            frame: this.player.frame.name || 0,
             flipX: this.player.flipX,
             leanAngle: this.playerLeanAngle,
             leanDirection: this.leanDirection,
             isDoingTrick: this.isDoingTrick,
-            trickCooldown: this.trickCooldown,
           },
           score: this.score,
           timeElapsed: this.timeElapsed,
@@ -616,49 +519,9 @@ export default class Scene0 extends Phaser.Scene {
           isGameOver: this.isGameOver,
         });
       }
-    } catch (e) {
-      console.error("Error updating player:", e);
-    }
+    } catch (e) {}
 
     const dtSeconds = delta / 1000;
-
-    let hostState = this.lastHostState;
-    if (this.game.isSpectator && hostState) {
-      if ("gravity" in hostState) {
-        this.physics.world.gravity.y = hostState.gravity;
-      }
-      this.carrier.setPosition(hostState.carrier.x, hostState.carrier.y);
-      this.carrier.rotation = hostState.carrier.angle;
-      this.carrierTravelDir = hostState.carrier.travelDir;
-
-      this.player.setPosition(hostState.player.x, hostState.player.y);
-      this.player.rotation = hostState.player.angle;
-      this.player.setFlipX(hostState.player.flipX);
-      this.player.setFrame(hostState.player.frame);
-
-      this.playerLeanAngle = hostState.player.leanAngle;
-      this.leanDirection = hostState.player.leanDirection;
-      this.isDoingTrick = hostState.player.isDoingTrick;
-      this.trickCooldown = hostState.player.trickCooldown;
-
-      this.score = hostState.score;
-      this.timeElapsed = hostState.timeElapsed;
-      this.speed = hostState.speed;
-      this.isGameOver = hostState.isGameOver;
-
-      let remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
-      this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
-      this.scoreText.setText(`Pontos: ${this.score} / ${this.targetScore}`);
-
-      if (this.isGameOver) {
-        if (this.score >= this.targetScore) {
-          this.endGame("win");
-        } else {
-          this.endGame("gameover");
-        }
-        return;
-      }
-    }
 
     if (!this.isGameOver) {
       if (this.safeZoneActive) {
@@ -677,70 +540,42 @@ export default class Scene0 extends Phaser.Scene {
 
       if (!this.game.isSpectator) {
         this.timeElapsed += dtSeconds;
-        this.speed = Math.min(1200, 550 + 650 * (this.timeElapsed / 40));
+
+        // ALTERAÇÃO: Divisor mudou de 40 para 20. O jogo fica difícil 2x mais rápido.
+        this.speed = Math.min(1200, 550 + 650 * (this.timeElapsed / 20));
+
+        this.timeText.setText(
+          this.isInfiniteMode
+            ? `Tempo: ${Math.ceil(this.timeElapsed)}s`
+            : `Tempo: ${Math.ceil(Math.max(0, this.maxTime - this.timeElapsed))}s`,
+        );
       }
 
-      if (this.isInfiniteMode) {
-        this.timeText.setText(`Tempo: ${Math.ceil(this.timeElapsed)}s`);
-      } else {
-        let remainingTime = Math.max(0, this.maxTime - this.timeElapsed);
-        this.timeText.setText(`Tempo: ${Math.ceil(remainingTime)}s`);
+      if (this.leanDirection === "LEFT")
+        this.playerLeanAngle = Math.max(
+          -30,
+          this.playerLeanAngle - this.leanSpeed * dtSeconds,
+        );
+      else if (this.leanDirection === "RIGHT")
+        this.playerLeanAngle = Math.min(
+          30,
+          this.playerLeanAngle + this.leanSpeed * dtSeconds,
+        );
 
-        if (remainingTime <= 0) {
-          this.isGameOver = true;
-          this.carrier.setVelocity(0, 0);
-          this.tweens.add({
-            targets: this.bgMusic,
-            volume: 0,
-            duration: 1000,
-            onComplete: () => {
-              this.bgMusic.stop();
-              if (this.score >= this.targetScore) {
-                this.endGame("win");
-              } else {
-                this.endGame("gameover");
-              }
-            },
-          });
-        }
-      }
-
-      if (!this.game.isSpectator) {
-        if (this.leanDirection === "LEFT") {
-          this.playerLeanAngle -= this.leanSpeed * dtSeconds;
-          if (this.playerLeanAngle < -30) this.playerLeanAngle = -30;
-          this.player.setFlipX(true);
-        } else if (this.leanDirection === "RIGHT") {
-          this.playerLeanAngle += this.leanSpeed * dtSeconds;
-          if (this.playerLeanAngle > 30) this.playerLeanAngle = 30;
-          this.player.setFlipX(false);
-        }
-      }
-
-      const absAngle = Math.abs(this.playerLeanAngle);
-      if (absAngle < 15) {
-        this.player.setFrame(0);
-      } else {
-        this.player.setFrame(1);
-      }
-
-      const maxOffset = 18;
-      const shift = (this.playerLeanAngle / 30) * maxOffset;
+      this.player.setFrame(Math.abs(this.playerLeanAngle) < 15 ? 0 : 1);
+      const shift = (this.playerLeanAngle / 30) * 18;
       let offX = 0,
         offY = 0;
-
       if (this.carrierTravelDir === "UP") offX = shift;
       else if (this.carrierTravelDir === "DOWN") offX = -shift;
       else if (this.carrierTravelDir === "RIGHT") offY = shift;
-      else if (this.carrierTravelDir === "LEFT") offY = -shift;
+      else offY = -shift;
 
       this.player.setPosition(this.carrier.x + offX, this.carrier.y + offY);
-
-      if (!this.isDoingTrick) {
+      if (!this.isDoingTrick)
         this.player.setRotation(
           this.carrier.rotation + Phaser.Math.DegToRad(this.playerLeanAngle),
         );
-      }
     }
 
     const v = { UP: [0, -1], DOWN: [0, 1], LEFT: [-1, 0], RIGHT: [1, 0] }[
@@ -750,21 +585,6 @@ export default class Scene0 extends Phaser.Scene {
 
     this.bgStars.tilePositionX = this.cameras.main.scrollX * 0.1;
     this.bgStars.tilePositionY = this.cameras.main.scrollY * 0.1;
-
-    for (let i = this.asteroids.length - 1; i >= 0; i--) {
-      const a = this.asteroids[i];
-      if (
-        Phaser.Math.Distance.Between(this.carrier.x, this.carrier.y, a.x, a.y) >
-        2000
-      ) {
-        a.destroy();
-        this.asteroids.splice(i, 1);
-        continue;
-      }
-      a.rotation += a.rotSpeed * dtSeconds;
-      a.x += a.driftX * dtSeconds;
-      a.y += a.driftY * dtSeconds;
-    }
 
     if (
       Phaser.Math.Distance.Between(
@@ -776,20 +596,17 @@ export default class Scene0 extends Phaser.Scene {
     ) {
       this.generateTrackPiece();
     }
-
     if (this.roadPieces.length > 120) this.roadPieces.shift().destroy();
 
     const cp = this.getPieceUnder(this.carrier);
-
     if (
       !this.isGameOver &&
       cp &&
       cp.trackType === "way_f" &&
       this.leanDirection !== "NONE" &&
       !this.game.isSpectator
-    ) {
+    )
       this.triggerFall();
-    }
 
     if (cp && cp !== this.carrier.lastTurnedPiece && cp.trackType !== "way_f") {
       let passed =
@@ -797,42 +614,27 @@ export default class Scene0 extends Phaser.Scene {
         (this.carrierTravelDir === "DOWN" && this.carrier.y >= cp.y) ||
         (this.carrierTravelDir === "RIGHT" && this.carrier.x >= cp.x) ||
         (this.carrierTravelDir === "LEFT" && this.carrier.x <= cp.x);
-
       if (passed) {
-        const requiredTurn = cp.trackType === "way_r" ? "RIGHT" : "LEFT";
-        const next = {
+        const turn = cp.trackType === "way_r" ? "RIGHT" : "LEFT";
+        this.carrierTravelDir = {
           UP: { RIGHT: "RIGHT", LEFT: "LEFT" },
           RIGHT: { RIGHT: "DOWN", LEFT: "UP" },
           LEFT: { RIGHT: "UP", LEFT: "DOWN" },
           DOWN: { RIGHT: "LEFT", LEFT: "RIGHT" },
-        }[this.carrierTravelDir][requiredTurn];
-
-        this.carrierTravelDir = next;
+        }[this.carrierTravelDir][turn];
         this.carrier.setPosition(cp.x, cp.y);
         this.carrier.lastTurnedPiece = cp;
         this.updateCameraRotation();
-
-        if (!this.isGameOver && !this.game.isSpectator) {
-          if (this.leanDirection === requiredTurn) {
-            this.playerLeanAngle = 0;
-            this.leanDirection = "NONE";
-            this.player.setFrame(0);
-            this.player.setFlipX(requiredTurn === "LEFT");
-            this.sound.play("swoosh");
-          } else {
-            this.triggerFall();
-          }
+        if (this.leanDirection === turn) {
+          this.playerLeanAngle = 0;
+          this.leanDirection = "NONE";
+          this.sound.play("swoosh");
+        } else {
+          this.triggerFall();
         }
       }
     }
-
-    if (
-      !this.isGameOver &&
-      !this.getPieceUnder(this.carrier) &&
-      !this.game.isSpectator
-    ) {
-      this.triggerFall();
-    }
+    if (!this.isGameOver && !cp && !this.game.isSpectator) this.triggerFall();
   }
 
   getPieceUnder(target) {

@@ -39,7 +39,6 @@ class preloader extends Phaser.Scene {
     this.load.image("aster_2", "aster_2.png");
     this.load.image("aster_3", "aster_3.png");
 
-    this.load.image("win_bg", "win_bg.png");
     this.load.image("room-background", "room-background.png");
   }
 
