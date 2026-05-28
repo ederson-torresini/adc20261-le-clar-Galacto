@@ -13,13 +13,13 @@ export default class Start extends Phaser.Scene {
 
   preload() {
     this.load.setPath("assets/");
-    this.load.image("phbg", "phbg.png");
+    this.load.image("menu_bg", "menu_bg.png");
   }
 
   create() {
     const { width, height } = this.scale;
 
-    this.bg = this.add.image(width / 2, height / 2, "phbg");
+    this.bg = this.add.image(width / 2, height / 2, "menu_bg");
     const bgScale = Math.max(width / this.bg.width, height / this.bg.height);
     this.bg.setScale(bgScale);
 

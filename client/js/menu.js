@@ -9,8 +9,8 @@ export default class Menu extends Phaser.Scene {
   preload() {
     // Define a pasta base onde o jogo vai procurar os arquivos
     this.load.setPath("assets/");
-    // Carrega a imagem de fundo e dá a ela a chave "phbg"
-    this.load.image("phbg", "phbg.png");
+    // Carrega a imagem de fundo e dá a ela a chave "menu_bg"
+    this.load.image("menu_bg", "phbg.png");
   }
 
   // O método create() monta os elementos visuais na tela
@@ -20,7 +20,7 @@ export default class Menu extends Phaser.Scene {
 
     // --- BLOCO: FUNDO (BACKGROUND) ---
     // Adiciona a imagem de fundo bem no centro da tela
-    this.bg = this.add.image(width / 2, height / 2, "phbg");
+    this.bg = this.add.image(width / 2, height / 2, "menu_bg");
     // Calcula a escala necessária para a imagem cobrir toda a tela, sem achatar (efeito "cover")
     const bgScale = Math.max(width / this.bg.width, height / this.bg.height);
     this.bg.setScale(bgScale);

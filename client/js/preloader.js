@@ -9,7 +9,7 @@ class preloader extends Phaser.Scene {
       this.scale.lockOrientation("landscape");
     }
 
-    this.add.image(400, 225, "phbg");
+    this.add.image(400, 225, "menu_bg");
 
     this.add.rectangle(400, 300, 468, 32).setStrokeStyle(1, 0xffffff);
     const bar = this.add.rectangle(400 - 230, 300, 4, 28, 0xffffff);
@@ -22,6 +22,7 @@ class preloader extends Phaser.Scene {
   preload() {
     this.load.setPath("assets/");
     this.load.image("phbg", "phbg.png");
+    this.load.image("menu_bg", "menu_bg.png");
     this.load.image("logo", "pixel-art.png");
     this.load.spritesheet("player", "player.png", {
       frameWidth: 32,
