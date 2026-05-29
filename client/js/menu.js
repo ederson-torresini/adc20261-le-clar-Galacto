@@ -18,6 +18,17 @@ export default class Menu extends Phaser.Scene {
     // Pega as dimensões atuais da tela do jogo
     const { width, height } = this.scale;
 
+    //MÚSICA
+if (!this.sound.get("menu")) {
+    const musica = this.sound.add("menu", { 
+        loop: true, 
+        volume: 0.5 
+    });
+    musica.play();
+} else if (!this.sound.get("menu").isPlaying) {
+    this.sound.get("menu").play();
+}
+
     // --- BLOCO: FUNDO (BACKGROUND) ---
     // Adiciona a imagem de fundo bem no centro da tela
     this.bg = this.add.image(width / 2, height / 2, "menu_bg");

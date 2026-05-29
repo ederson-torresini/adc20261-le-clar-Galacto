@@ -6,6 +6,17 @@ export default class Gameover extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
+    //MÚSICA
+if (!this.sound.get("gameover")) {
+    const musica = this.sound.add("gameover", { 
+        loop: true, 
+        volume: 0.5 
+    });
+    musica.play();
+} else if (!this.sound.get("gameover").isPlaying) {
+    this.sound.get("gameover").play();
+}
+
     // --- BLOCO: FUNDO ---
     this.bg = this.add.image(width / 2, height / 2, "phbg");
     const bgScale = Math.max(width / this.bg.width, height / this.bg.height);

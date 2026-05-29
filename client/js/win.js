@@ -9,6 +9,17 @@ export default class Win extends Phaser.Scene {
     const bgScale = Math.max(width / this.bg.width, height / this.bg.height);
     this.bg.setScale(bgScale);
 
+    //MÚSICA
+if (!this.sound.get("win")) {
+    const musica = this.sound.add("win", { 
+        loop: true, 
+        volume: 0.5 
+    });
+    musica.play();
+} else if (!this.sound.get("win").isPlaying) {
+    this.sound.get("win").play();
+}
+
     this.add
       .text(width / 2, height * 0.4, "Venceu!", {
         fontSize: "40px",

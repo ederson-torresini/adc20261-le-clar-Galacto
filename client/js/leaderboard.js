@@ -19,6 +19,17 @@ export default class Leaderboard extends Phaser.Scene {
     // Pega as dimensões atuais da tela do jogo
     const { width, height } = this.scale;
 
+    //MÚSICA
+if (!this.sound.get("menu")) {
+    const musica = this.sound.add("menu", { 
+        loop: true, 
+        volume: 0.5 
+    });
+    musica.play();
+} else if (!this.sound.get("menu").isPlaying) {
+    this.sound.get("menu").play();
+}
+
     // --- BLOCO: ELEMENTOS VISUAIS E BACKGROUND ---
     // Cria um retângulo escuro e semi-transparente para servir de fundo da tela
     this.add.rectangle(0, 0, width, height, 0x050717, 0.95).setOrigin(0);
