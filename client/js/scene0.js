@@ -302,6 +302,10 @@ export default class Scene0 extends Phaser.Scene {
       ease: "Cubic.easeOut",
       onComplete: () => {
         if (this.isGameOver) return;
+
+        // TRUQUE BEM SUCEDIDO: Toca o efeito sonoro novo
+        this.sound.play("trick");
+
         this.isDoingTrick = false;
         this.score += 300;
         this.scoreText.setText(

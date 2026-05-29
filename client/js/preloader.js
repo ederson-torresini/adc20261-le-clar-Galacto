@@ -54,11 +54,13 @@ class preloader extends Phaser.Scene {
     this.load.image("way_l", "way_l.png");
     this.load.image("way_r", "way_r.png");
     this.load.image("spaceship_new", "spaceship_new.png");
+    this.load.audio("trick", "trick.mp3");
+    this.load.audio("button", "button.mp3");
     this.load.audio("swoosh", "swoosh.mp3");
     this.load.audio("soundtrack", "soundtrack.mp3");
-    this.load.audio("menu", "assets/menu.mp3");
-    this.load.audio("win", "assets/win.mp3");
-    this.load.audio("gameover", "assets/gameover.mp3");
+    this.load.audio("menu", "menu.mp3");
+    this.load.audio("win", "win.mp3");
+    this.load.audio("gameover", "gameover.mp3");
     this.load.image("aster_1", "aster_1.png");
     this.load.image("aster_2", "aster_2.png");
     this.load.image("aster_3", "aster_3.png");

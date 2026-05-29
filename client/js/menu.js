@@ -19,15 +19,15 @@ export default class Menu extends Phaser.Scene {
     const { width, height } = this.scale;
 
     //MÚSICA
-if (!this.sound.get("menu")) {
-    const musica = this.sound.add("menu", { 
-        loop: true, 
-        volume: 0.5 
-    });
-    musica.play();
-} else if (!this.sound.get("menu").isPlaying) {
-    this.sound.get("menu").play();
-}
+    if (!this.sound.get("menu")) {
+      const musica = this.sound.add("menu", {
+        loop: true,
+        volume: 0.5,
+      });
+      musica.play();
+    } else if (!this.sound.get("menu").isPlaying) {
+      this.sound.get("menu").play();
+    }
 
     // --- BLOCO: FUNDO (BACKGROUND) ---
     // Adiciona a imagem de fundo bem no centro da tela
@@ -78,6 +78,9 @@ if (!this.sound.get("menu")) {
 
       // Associa a ação de clique (pointerdown) no botão à função (onClick) passada como parâmetro
       rect.on("pointerdown", () => {
+        // TOCA O EFEITO SONORO DO BOTÃO
+        this.sound.play("button");
+
         if (onClick) onClick();
       });
 
