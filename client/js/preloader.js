@@ -56,7 +56,7 @@ class preloader extends Phaser.Scene {
           "Aguardando o primeiro jogador iniciar...",
           {
             fontSize: "28px",
-            fill: "#ffffff",
+            fill: "#67ddbd",
             fontFamily: "MinhaFontePersonalizada",
           },
         )

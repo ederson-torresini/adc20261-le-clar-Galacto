@@ -30,7 +30,7 @@ export default class Menu extends Phaser.Scene {
     this.titleText = this.add
       .text(width / 2, height * 0.15, "GALACTO", {
         fontSize: "64px",
-        fill: "#9f88d8",
+        fill: "#67ddbd",
         fontStyle: "bold",
         fontFamily: "MinhaFontePersonalizada",
       })
@@ -38,7 +38,7 @@ export default class Menu extends Phaser.Scene {
 
     // --- BLOCO: CONFIGURAÇÕES DOS BOTÕES ---
     // Define a cor padrão dos botões
-    const btnColor = 0x9f89d9; // provided color
+    const btnColor = 0x67ddbd; // provided color
 
     // Calcula a largura do botão (no máximo 420px ou 60% da tela) e define altura, posição inicial e espaço entre eles
     const btnWidth = Math.min(420, width * 0.6);

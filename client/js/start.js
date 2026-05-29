@@ -26,7 +26,7 @@ export default class Start extends Phaser.Scene {
     this.titleText = this.add
       .text(width / 2, height * 0.15, "GALACTO", {
         fontSize: "80px",
-        fill: "#9f88d8",
+        fill: "#67ddbd",
         fontStyle: "bold",
         fontFamily: "MinhaFontePersonalizada",
       })
