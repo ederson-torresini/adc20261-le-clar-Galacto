@@ -393,6 +393,24 @@ export default class Scene0 extends Phaser.Scene {
 
   attemptTurn(turnIntent) {
     if (this.isGameOver || this.isDoingTrick || this.safeZoneActive) return;
+
+    const cp = this.getPieceUnder(this.carrier);
+    if (
+      cp &&
+      cp.trackType === "way_f" &&
+      !this.tutorialActive &&
+      !this.game.isSpectator
+    ) {
+      const upcoming = this.isCurveUpcoming(4);
+      const correctLeaning =
+        (upcoming === "way_r" && turnIntent === "RIGHT") ||
+        (upcoming === "way_l" && turnIntent === "LEFT");
+      if (!correctLeaning) {
+        this.triggerFall();
+        return;
+      }
+    }
+
     this.leanDirection = turnIntent;
   }
 
