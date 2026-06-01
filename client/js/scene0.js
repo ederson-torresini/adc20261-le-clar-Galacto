@@ -14,7 +14,6 @@ export default class Scene0 extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor(0x080a29);
 
-    // --- FUNDO ESTRELADO ---
     const graphics = this.make.graphics({ x: 0, y: 0, add: false });
     graphics.fillStyle(0xffffff, 0.8);
     for (let i = 0; i < 200; i++) {
@@ -45,35 +44,46 @@ export default class Scene0 extends Phaser.Scene {
     this.justTurned = false;
     this.turnHistory = 0;
 
-    // SISTEMA DE EQUILÍBRIO DE MANOBRAS
     this.piecesSinceLastWindow = 0;
+    this.piecesSinceLastTrickWindow = 0;
     this.forcedStraightRemaining = 0;
 
-    // ZONA SEGURA
-    this.safeZoneActive = true;
-    this.safeZoneTime = 3;
-    this.safeZoneRemaining = this.safeZoneTime;
-    this.safeStraightPieces = 10;
-    this.safeStraightGenerated = 0;
+    this.isInfiniteMode = !!this.game.isInfiniteMode;
 
-    // ATRIBUTOS
+    // --- SISTEMA DE TUTORIAL (Só História e Só 1ª Vez) ---
+    const tutorialDone = localStorage.getItem("galacto_tutorial_done");
+    this.tutorialActive = !this.isInfiniteMode && !tutorialDone;
+
+    if (this.tutorialActive) {
+      this.tutorialStep = 0;
+      this.tutorialTimer = 0;
+      this.totalPiecesGenerated = 0;
+      this.safeZoneActive = true;
+      this.safeZoneRemaining = 1.5;
+    } else {
+      this.safeZoneActive = true;
+      this.safeZoneTime = 3;
+      this.safeZoneRemaining = this.safeZoneTime;
+      this.safeStraightPieces = 5;
+      this.safeStraightGenerated = 0;
+    }
+
     this.speed = 550;
-    this.maxTime = 90;
     this.timeElapsed = 0;
     this.isGameOver = false;
-
     this.score = 0;
-    this.targetScore = 1500;
+
+    // Tempo de jogo aumentado para exatamente 2 minutos (120s)
+    this.maxTime = this.isInfiniteMode ? Infinity : 120;
+    this.targetScore = this.isInfiniteMode ? null : 3000;
+
     this.isDoingTrick = false;
     this.trickCooldown = false;
-
-    this.isInfiniteMode = !!this.game.isInfiniteMode;
-    this.maxTime = this.isInfiniteMode ? Infinity : 90;
-    this.targetScore = this.isInfiniteMode ? null : 1500;
 
     this.bgMusic = this.sound.add("soundtrack", { loop: true, volume: 0.5 });
     this.bgMusic.play();
 
+    // Gera o mapa inicial
     for (let i = 0; i < 80; i++) this.generateTrackPiece();
 
     this.carrier = this.physics.add.sprite(0, 0, "spaceship_new").setDepth(9);
@@ -93,7 +103,6 @@ export default class Scene0 extends Phaser.Scene {
     this.leanDirection = "NONE";
     this.leanSpeed = 190;
 
-    // UI TEXTS
     this.timeText = this.add
       .text(
         30,
@@ -122,151 +131,85 @@ export default class Scene0 extends Phaser.Scene {
       .setDepth(100)
       .setScrollFactor(0);
 
-    this.safeZoneText = this.add
-      .text(30, 130, `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`, {
-        fontSize: "22px",
-        fill: "#00ff00",
-        fontFamily: "MinhaFontePersonalizada",
-      })
-      .setDepth(100)
-      .setScrollFactor(0);
+    const ignoreList = [this.timeText, this.scoreText];
 
-    // CÂMERAS
-    this.cameras.main.ignore([
-      this.timeText,
-      this.scoreText,
-      this.safeZoneText,
-    ]);
+    if (this.tutorialActive) {
+      this.tutorialText = this.add
+        .text(
+          width / 2,
+          height * 0.75,
+          "Pressione a direita para virar a curva",
+          {
+            fontSize: "26px",
+            fill: "#00ff00",
+            fontFamily: "MinhaFontePersonalizada",
+            align: "center",
+            backgroundColor: "#000000aa",
+            padding: { x: 15, y: 15 },
+          },
+        )
+        .setOrigin(0.5)
+        .setDepth(100)
+        .setScrollFactor(0);
+      ignoreList.push(this.tutorialText);
+    } else {
+      this.safeZoneText = this.add
+        .text(30, 130, `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`, {
+          fontSize: "22px",
+          fill: "#00ff00",
+          fontFamily: "MinhaFontePersonalizada",
+        })
+        .setDepth(100)
+        .setScrollFactor(0);
+      ignoreList.push(this.safeZoneText);
+    }
 
+    this.cameras.main.ignore(ignoreList);
     this.cameras.main.startFollow(this.carrier, true, 0.1, 0.1);
     this.cameras.main.setZoom(0.4);
-
     this.cameras.main.setFollowOffset(0, height * 1.0);
 
     this.uiCam = this.cameras.add(0, 0, width, height);
     this.uiCam.ignore([this.bgStars, this.worldLayer]);
 
-    // CONTROLES MOBILE
     this.pointerGesture = { downX: 0, downY: 0, downTime: 0, moved: false };
-
     this.input.on("pointerdown", (pointer) => {
       if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
         return;
       this.pointerGesture.downX = pointer.x;
       this.pointerGesture.downY = pointer.y;
       this.pointerGesture.downTime = performance.now();
-      this.pointerGesture.moved = false;
-    });
-
-    this.input.on("pointermove", (pointer) => {
-      if (!this.pointerGesture.downTime) return;
-      const dx = Math.abs(pointer.x - this.pointerGesture.downX);
-      const dy = Math.abs(pointer.y - this.pointerGesture.downY);
-      if (dx > 10 || dy > 10) this.pointerGesture.moved = true;
     });
 
     this.input.on("pointerup", (pointer) => {
-      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive) {
-        this.pointerGesture.downTime = 0;
+      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
         return;
-      }
-
-      const downX = this.pointerGesture.downX;
-      const downY = this.pointerGesture.downY;
-      const upX = pointer.x;
-      const upY = pointer.y;
-      const dx = upX - downX;
-      const dy = upY - downY;
-      const absDx = Math.abs(dx);
-      const absDy = Math.abs(dy);
-      const swipeThresh = 60;
-
-      if (downY - upY > swipeThresh && absDy > absDx) {
+      const dx = pointer.x - this.pointerGesture.downX;
+      const dy = pointer.y - this.pointerGesture.downY;
+      if (
+        this.pointerGesture.downY - pointer.y > 60 &&
+        Math.abs(dy) > Math.abs(dx)
+      ) {
         this.startTrick();
-        this.game.socket.emit("player-action", this.game.room, {
-          type: "trick",
-        });
       } else {
-        const isRight = upX > width / 2;
-        const turn = isRight ? "RIGHT" : "LEFT";
+        const turn = pointer.x > width / 2 ? "RIGHT" : "LEFT";
         this.attemptTurn(turn);
-        this.game.socket.emit("player-action", this.game.room, {
-          type: "turn",
-          data: { turn },
-        });
-      }
-
-      this.pointerGesture.downTime = 0;
-    });
-
-    // CONTROLES DE TECLADO
-    this.input.keyboard.on("keydown-A", () => {
-      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
-        return;
-      this.attemptTurn("LEFT");
-      this.game.socket.emit("player-action", this.game.room, {
-        type: "turn",
-        data: { turn: "LEFT" },
-      });
-    });
-
-    this.input.keyboard.on("keydown-D", () => {
-      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
-        return;
-      this.attemptTurn("RIGHT");
-      this.game.socket.emit("player-action", this.game.room, {
-        type: "turn",
-        data: { turn: "RIGHT" },
-      });
-    });
-
-    this.input.keyboard.on("keydown-W", () => {
-      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
-        return;
-      this.startTrick();
-      this.game.socket.emit("player-action", this.game.room, { type: "trick" });
-    });
-
-    // BOTÃO DE TESTE (E)
-    this.input.keyboard.on("keydown-E", () => {
-      if (this.isGameOver || this.game.isSpectator) return;
-      this.score = 1500;
-      this.scoreText.setText(
-        this.isInfiniteMode
-          ? `Pontos: ${this.score}`
-          : `Pontos: ${this.score} / ${this.targetScore}`,
-      );
-      if (!this.isInfiniteMode) {
-        this.timeElapsed = this.maxTime - 5;
-        this.timeText.setText(`Tempo: 5s`);
       }
     });
 
-    // MULTIPLAYER SYNC
-    this.leaderboardListener = (state) => {
-      if (!this.game.isSpectator) return;
-      if (!state || typeof state !== "object") return;
-      if ("gravity" in state && state.gravity != null)
-        this.physics.world.gravity.y = state.gravity;
-      this.lastHostState = state;
-    };
-    this.game.socket.on("scene0", this.leaderboardListener);
+    this.input.keyboard.on("keydown-A", () => this.attemptTurn("LEFT"));
+    this.input.keyboard.on("keydown-D", () => this.attemptTurn("RIGHT"));
+    this.input.keyboard.on("keydown-W", () => this.startTrick());
 
-    // Adiciona evento de limpeza automática quando a cena fechar
     this.events.on("shutdown", () => this.cleanup());
-
-    if (this.game.isSpectator) this.input.enabled = false;
   }
 
-  // DESTRÓI A SALA E LIMPA OUVINTES ASSIM QUE O JOGADOR SAI DA CENA
   cleanup() {
     if (this.game.socket) {
-      // Força o envio para o servidor deletar/tirar o player da sala imediatamente
       if (this.game.room) {
         this.game.socket.emit("leave-room", this.game.room);
-        this.game.room = null; // Reseta a sala localmente para não reconectar errado
+        this.game.room = null;
       }
-      this.game.socket.off("scene0", this.leaderboardListener);
     }
     if (this.bgMusic) this.bgMusic.stop();
   }
@@ -275,25 +218,46 @@ export default class Scene0 extends Phaser.Scene {
     if (!this.game.isSpectator && this.game.socket && this.game.room) {
       this.game.socket.emit("change-scene", this.game.room, sceneKey);
     }
-
     this.game.isSpectator = false;
     this.cleanup();
     this.scene.start(sceneKey);
   }
 
+  isCurveUpcoming(lookAheadCount = 5) {
+    const currentPiece = this.getPieceUnder(this.carrier);
+    if (!currentPiece) return null;
+    const index = this.roadPieces.indexOf(currentPiece);
+    if (index === -1) return null;
+
+    // Varre as próximas peças reais da fila de renderização
+    for (let i = 1; i <= lookAheadCount; i++) {
+      const nextPiece = this.roadPieces[index + i];
+      if (nextPiece && nextPiece.trackType !== "way_f") {
+        return nextPiece.trackType; // Retorna 'way_r' ou 'way_l'
+      }
+    }
+    return null;
+  }
+
   startTrick() {
+    const curveAhead = !!this.isCurveUpcoming(5);
+
     if (
       this.isGameOver ||
       this.safeZoneActive ||
       this.isDoingTrick ||
       this.trickCooldown ||
-      this.leanDirection !== "NONE"
+      this.leanDirection !== "NONE" ||
+      curveAhead ||
+      (this.tutorialActive && this.tutorialStep < 2)
     )
       return;
 
     this.isDoingTrick = true;
     this.trickCooldown = true;
     this.sound.play("swoosh");
+
+    this.forcedStraightRemaining += 6;
 
     this.tweens.add({
       targets: this.player,
@@ -302,19 +266,17 @@ export default class Scene0 extends Phaser.Scene {
       ease: "Cubic.easeOut",
       onComplete: () => {
         if (this.isGameOver) return;
-
-        // TRUQUE BEM SUCEDIDO: Toca o efeito sonoro novo
         this.sound.play("trick");
-
         this.isDoingTrick = false;
-        this.score += 300;
+
+        this.score += 200;
         this.scoreText.setText(
           this.isInfiniteMode
             ? `Pontos: ${this.score}`
             : `Pontos: ${this.score} / ${this.targetScore}`,
         );
 
-        this.time.delayedCall(200, () => {
+        this.time.delayedCall(1400, () => {
           this.trickCooldown = false;
         });
       },
@@ -334,6 +296,7 @@ export default class Scene0 extends Phaser.Scene {
       Math.sin(targetCamRad - currentCamRad),
       Math.cos(targetCamRad - currentCamRad),
     );
+
     this.tweens.add({
       targets: this.cameras.main,
       rotation: currentCamRad + camDiff,
@@ -362,6 +325,8 @@ export default class Scene0 extends Phaser.Scene {
           ? 0
           : -targetCamRad;
     const currentShipRad = this.carrier.rotation;
+
+    // Correção: Math.sin() e Math.cos() normais evitam a inversão nas curvas à esquerda!
     let shipDiff = Math.atan2(
       Math.sin(shipTargetRad - currentShipRad),
       Math.cos(shipTargetRad - currentShipRad),
@@ -427,42 +392,68 @@ export default class Scene0 extends Phaser.Scene {
   }
 
   attemptTurn(turnIntent) {
-    if (this.isGameOver || this.safeZoneActive || this.isDoingTrick) return;
+    if (this.isGameOver || this.isDoingTrick || this.safeZoneActive) return;
     this.leanDirection = turnIntent;
   }
 
   generateTrackPiece() {
     let type = "way_f";
-    if (this.safeStraightGenerated < this.safeStraightPieces) {
-      this.safeStraightGenerated++;
-    } else if (this.forcedStraightRemaining > 0) {
-      this.forcedStraightRemaining--;
-      if (this.forcedStraightRemaining === 0) this.justTurned = true;
-    } else if (this.justTurned) {
-      this.justTurned = false;
-      this.straightPiecesCount = 1;
-      this.piecesSinceLastWindow++;
+
+    if (this.tutorialActive && this.totalPiecesGenerated < 50) {
+      if (this.totalPiecesGenerated === 15) type = "way_r";
+      else if (this.totalPiecesGenerated === 30) type = "way_l";
+      else type = "way_f";
+      this.totalPiecesGenerated++;
     } else {
-      this.straightPiecesCount++;
-      this.piecesSinceLastWindow++;
-      if (this.piecesSinceLastWindow >= 28) {
-        this.forcedStraightRemaining = Math.ceil(
-          (this.speed * 1.6) / this.gridSize,
-        );
-        this.piecesSinceLastWindow = 0;
+      if (
+        !this.tutorialActive &&
+        this.safeStraightGenerated < this.safeStraightPieces
+      ) {
+        this.safeStraightGenerated++;
+        this.straightPiecesCount++;
+        this.piecesSinceLastWindow++;
+        this.piecesSinceLastTrickWindow++;
         type = "way_f";
+      } else if (this.forcedStraightRemaining > 0) {
         this.forcedStraightRemaining--;
-      } else if (this.straightPiecesCount > 2 && this.random.frac() < 0.45) {
-        type =
-          this.turnHistory > 0
-            ? "way_l"
-            : this.turnHistory < 0
-              ? "way_r"
-              : this.random.frac() < 0.5
-                ? "way_l"
-                : "way_r";
-        this.turnHistory += type === "way_r" ? 1 : -1;
-        this.justTurned = true;
+        this.straightPiecesCount++;
+        this.piecesSinceLastWindow++;
+        type = "way_f";
+        if (this.forcedStraightRemaining === 0) this.justTurned = true;
+      } else {
+        const ensureTrickWindow = this.piecesSinceLastTrickWindow >= 10;
+        this.straightPiecesCount++;
+        this.piecesSinceLastWindow++;
+        this.piecesSinceLastTrickWindow++;
+
+        const mustCurve =
+          this.straightPiecesCount >= 4 || this.piecesSinceLastWindow >= 8;
+        const randomCurve =
+          this.straightPiecesCount > 1 && this.random.frac() < 0.55;
+
+        if (ensureTrickWindow) {
+          this.forcedStraightRemaining = Math.max(
+            this.forcedStraightRemaining,
+            5,
+          );
+          this.piecesSinceLastTrickWindow = 0;
+          type = "way_f";
+        } else if (mustCurve || randomCurve) {
+          type =
+            this.turnHistory > 0
+              ? "way_l"
+              : this.turnHistory < 0
+                ? "way_r"
+                : this.random.frac() < 0.5
+                  ? "way_l"
+                  : "way_r";
+          this.turnHistory += type === "way_r" ? 1 : -1;
+          this.justTurned = true;
+          this.piecesSinceLastWindow = 0;
+          this.straightPiecesCount = 0;
+        } else {
+          type = "way_f";
+        }
       }
     }
 
@@ -508,35 +499,6 @@ export default class Scene0 extends Phaser.Scene {
   }
 
   update(time, delta) {
-    // SOCKET BROADCAST
-    try {
-      if (!this.game.isSpectator && this.game.socket && this.game.room) {
-        this.game.socket.emit("scene0", this.game.room, {
-          gravity: this.physics.world.gravity.y,
-          carrier: {
-            x: this.carrier.x,
-            y: this.carrier.y,
-            angle: this.carrier.rotation,
-            travelDir: this.carrierTravelDir,
-          },
-          player: {
-            x: this.player.x,
-            y: this.player.y,
-            angle: this.player.rotation,
-            frame: this.player.frame.name || 0,
-            flipX: this.player.flipX,
-            leanAngle: this.playerLeanAngle,
-            leanDirection: this.leanDirection,
-            isDoingTrick: this.isDoingTrick,
-          },
-          score: this.score,
-          timeElapsed: this.timeElapsed,
-          speed: this.speed,
-          isGameOver: this.isGameOver,
-        });
-      }
-    } catch (e) {}
-
     const dtSeconds = delta / 1000;
 
     if (!this.isGameOver) {
@@ -545,16 +507,50 @@ export default class Scene0 extends Phaser.Scene {
           0,
           this.safeZoneRemaining - dtSeconds,
         );
-        this.safeZoneText.setText(
-          `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`,
-        );
+        if (this.safeZoneText) {
+          this.safeZoneText.setText(
+            `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`,
+          );
+        }
         if (this.safeZoneRemaining <= 0) {
           this.safeZoneActive = false;
-          this.safeZoneText.destroy();
+          if (this.safeZoneText) this.safeZoneText.destroy();
         }
       }
 
-      if (!this.game.isSpectator) {
+      if (this.tutorialActive) {
+        if (this.tutorialStep === 0) {
+          if (
+            this.carrier.lastTurnedPiece &&
+            this.carrier.lastTurnedPiece.trackType === "way_r"
+          ) {
+            this.tutorialStep = 1;
+            this.tutorialText.setText(
+              "Pressione a esquerda para virar a curva",
+            );
+          }
+        } else if (this.tutorialStep === 1) {
+          if (
+            this.carrier.lastTurnedPiece &&
+            this.carrier.lastTurnedPiece.trackType === "way_l"
+          ) {
+            this.tutorialStep = 2;
+            this.tutorialText.setText(
+              "Arraste para cima para fazer uma manobra",
+            );
+            this.tutorialTimer = 5;
+          }
+        } else if (this.tutorialStep === 2) {
+          this.tutorialTimer -= dtSeconds;
+          if (this.tutorialTimer <= 0 || this.isDoingTrick) {
+            this.tutorialActive = false;
+            if (this.tutorialText) this.tutorialText.destroy();
+            localStorage.setItem("galacto_tutorial_done", "true");
+          }
+        }
+      }
+
+      if (!this.game.isSpectator && !this.tutorialActive) {
         this.timeElapsed += dtSeconds;
         this.speed = Math.min(1200, 550 + 650 * (this.timeElapsed / 20));
 
@@ -565,14 +561,10 @@ export default class Scene0 extends Phaser.Scene {
             : `Tempo: ${Math.ceil(timeLeft)}s`,
         );
 
-        // LÓGICA DE VITÓRIA
         if (!this.isInfiniteMode && timeLeft <= 0) {
           this.isGameOver = true;
-          if (this.score >= this.targetScore) {
-            this.endGame("win");
-          } else {
-            this.endGame("gameover");
-          }
+          if (this.score >= this.targetScore) this.endGame("win");
+          else this.endGame("gameover");
           return;
         }
       }
@@ -625,14 +617,24 @@ export default class Scene0 extends Phaser.Scene {
     if (this.roadPieces.length > 120) this.roadPieces.shift().destroy();
 
     const cp = this.getPieceUnder(this.carrier);
+
     if (
       !this.isGameOver &&
       cp &&
       cp.trackType === "way_f" &&
       this.leanDirection !== "NONE" &&
-      !this.game.isSpectator
-    )
-      this.triggerFall();
+      !this.game.isSpectator &&
+      !this.tutorialActive
+    ) {
+      const upcoming = this.isCurveUpcoming(4);
+      const correctLeaning =
+        (upcoming === "way_r" && this.leanDirection === "RIGHT") ||
+        (upcoming === "way_l" && this.leanDirection === "LEFT");
+
+      if (!correctLeaning) {
+        this.triggerFall();
+      }
+    }
 
     if (cp && cp !== this.carrier.lastTurnedPiece && cp.trackType !== "way_f") {
       let passed =
@@ -651,16 +653,28 @@ export default class Scene0 extends Phaser.Scene {
         this.carrier.setPosition(cp.x, cp.y);
         this.carrier.lastTurnedPiece = cp;
         this.updateCameraRotation();
+
         if (this.leanDirection === turn) {
           this.playerLeanAngle = 0;
           this.leanDirection = "NONE";
           this.sound.play("swoosh");
         } else {
-          this.triggerFall();
+          if (!this.tutorialActive) this.triggerFall();
+          else {
+            this.playerLeanAngle = 0;
+            this.leanDirection = "NONE";
+          }
         }
       }
     }
-    if (!this.isGameOver && !cp && !this.game.isSpectator) this.triggerFall();
+
+    if (
+      !this.isGameOver &&
+      !cp &&
+      !this.game.isSpectator &&
+      !this.tutorialActive
+    )
+      this.triggerFall();
   }
 
   getPieceUnder(target) {

@@ -9,8 +9,8 @@ export default class Menu extends Phaser.Scene {
   preload() {
     // Define a pasta base onde o jogo vai procurar os arquivos
     this.load.setPath("assets/");
-    // Carrega a imagem de fundo e dá a ela a chave "menu_bg"
-    this.load.image("menu_bg", "phbg.png");
+    // Carrega a imagem de fundo e dá a ela a chave "phbg"
+    this.load.image("phbg", "phbg.png");
   }
 
   // O método create() monta os elementos visuais na tela
@@ -31,7 +31,7 @@ export default class Menu extends Phaser.Scene {
 
     // --- BLOCO: FUNDO (BACKGROUND) ---
     // Adiciona a imagem de fundo bem no centro da tela
-    this.bg = this.add.image(width / 2, height / 2, "menu_bg");
+    this.bg = this.add.image(width / 2, height / 2, "phbg");
     // Calcula a escala necessária para a imagem cobrir toda a tela, sem achatar (efeito "cover")
     const bgScale = Math.max(width / this.bg.width, height / this.bg.height);
     this.bg.setScale(bgScale);
@@ -41,7 +41,7 @@ export default class Menu extends Phaser.Scene {
     this.titleText = this.add
       .text(width / 2, height * 0.15, "GALACTO", {
         fontSize: "64px",
-        fill: "#67ddbd",
+        fill: "#9f88d8",
         fontStyle: "bold",
         fontFamily: "MinhaFontePersonalizada",
       })
@@ -49,7 +49,7 @@ export default class Menu extends Phaser.Scene {
 
     // --- BLOCO: CONFIGURAÇÕES DOS BOTÕES ---
     // Define a cor padrão dos botões
-    const btnColor = 0x67ddbd; // provided color
+    const btnColor = 0x9f88d8; // provided color
 
     // Calcula a largura do botão (no máximo 420px ou 60% da tela) e define altura, posição inicial e espaço entre eles
     const btnWidth = Math.min(420, width * 0.6);

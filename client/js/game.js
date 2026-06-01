@@ -8,6 +8,7 @@ import NameEntry from "./nameentry.js";
 import Leaderboard from "./leaderboard.js";
 import GameOver from "./gameover.js";
 import Win from "./win.js";
+import Cutscene from "./cutscene.js";
 
 class Game extends Phaser.Game {
   constructor() {
@@ -18,6 +19,10 @@ class Game extends Phaser.Game {
     this.scene.add("room", room);
     this.scene.add("nameentry", NameEntry);
     this.scene.add("leaderboard", Leaderboard);
+
+    // --- 2. ADICIONAR A CUTSCENE AQUI ---
+    this.scene.add("cutscene", Cutscene);
+
     this.scene.add("scene0", Scene0);
     this.scene.add("gameover", GameOver);
     this.scene.add("win", Win);

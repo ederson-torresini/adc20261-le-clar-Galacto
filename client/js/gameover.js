@@ -6,16 +6,16 @@ export default class Gameover extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    //MÚSICA
-if (!this.sound.get("gameover")) {
-    const musica = this.sound.add("gameover", { 
-        loop: true, 
-        volume: 0.5 
-    });
-    musica.play();
-} else if (!this.sound.get("gameover").isPlaying) {
-    this.sound.get("gameover").play();
-}
+    // --- BLOCO: MÚSICA ---
+    if (!this.sound.get("gameover")) {
+      const musica = this.sound.add("gameover", {
+        loop: true,
+        volume: 0.5,
+      });
+      musica.play();
+    } else if (!this.sound.get("gameover").isPlaying) {
+      this.sound.get("gameover").play();
+    }
 
     // --- BLOCO: FUNDO ---
     this.bg = this.add.image(width / 2, height / 2, "phbg");
@@ -26,7 +26,6 @@ if (!this.sound.get("gameover")) {
 
     // --- BLOCO: TÍTULO ---
     this.add
-      // Subi a posição de 0.4 para 0.3 para abrir espaço para os botões!
       .text(width / 2, height * 0.3, "GAME OVER", {
         fontSize: "60px",
         fill: "#9f88d8",
@@ -36,13 +35,11 @@ if (!this.sound.get("gameover")) {
       .setOrigin(0.5);
 
     // --- BLOCO: CONFIGURAÇÃO DOS BOTÕES ---
-    // Mesma lógica visual e de medidas que você usou no menu.js para manter o padrão
     const btnWidth = Math.min(420, width * 0.6);
     const btnHeight = 64;
     const btnColor = 0x9f89d9;
     const gap = 20;
 
-    // Função auxiliar para criar os botões facilmente
     const createButton = (x, y, label, onClick) => {
       const rect = this.add
         .rectangle(x, y, btnWidth, btnHeight, btnColor)
@@ -67,22 +64,29 @@ if (!this.sound.get("gameover")) {
 
     // --- BLOCO: BOTÃO "JOGAR NOVAMENTE" ---
     createButton(width / 2, height * 0.5, "Jogar Novamente", () => {
-      // Bloqueia a ação se for espectador, igualzinho ao seu código original
       if (!this.game.isSpectator) {
-        // Verifica qual é o modo atual usando a variável que setamos no menu.js
-        // Se for infinito: manda de volta pro "room" (ou troque aqui pro nome da cena do infinito, se for outra)
-        // Se for história: manda pro "scene0" como já acontecia antes
-        const targetScene = this.game.isInfiniteMode ? "room" : "scene0";
+        // Agora o modo história manda para a "cutscene" em vez de "scene0"
+        const targetScene = this.game.isInfiniteMode ? "room" : "cutscene";
 
-        // Avisa a sala no servidor e reinicia a cena
+        // Avisa a sala no servidor
         this.game.socket.emit("change-scene", this.game.room, targetScene);
-        this.scene.start(targetScene);
+
+        // Inicia a cena correta passando o parâmetro isRetry se for a cutscene
+        if (targetScene === "cutscene") {
+          this.scene.start("cutscene", { isRetry: true });
+        } else {
+          this.scene.start(targetScene);
+        }
       }
     });
 
     // --- BLOCO: BOTÃO "MENU PRINCIPAL" ---
     createButton(width / 2, height * 0.5 + btnHeight + gap, "Menu", () => {
-      // Para a tela de Game Over e volta para o Menu
+      // Para a música de Game Over antes de voltar ao menu (opcional, mas recomendado)
+      if (this.sound.get("gameover")) {
+        this.sound.get("gameover").stop();
+      }
+
       this.scene.stop("gameover");
       this.scene.start("menu");
     });

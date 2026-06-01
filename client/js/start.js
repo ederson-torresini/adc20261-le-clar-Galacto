@@ -13,20 +13,20 @@ export default class Start extends Phaser.Scene {
 
   preload() {
     this.load.setPath("assets/");
-    this.load.image("menu_bg", "menu_bg.png");
+    this.load.image("phbg", "phbg.png");
   }
 
   create() {
     const { width, height } = this.scale;
 
-    this.bg = this.add.image(width / 2, height / 2, "menu_bg");
+    this.bg = this.add.image(width / 2, height / 2, "phbg");
     const bgScale = Math.max(width / this.bg.width, height / this.bg.height);
     this.bg.setScale(bgScale);
 
     this.titleText = this.add
       .text(width / 2, height * 0.15, "GALACTO", {
         fontSize: "80px",
-        fill: "#67ddbd",
+        fill: "#9f88d8",
         fontStyle: "bold",
         fontFamily: "MinhaFontePersonalizada",
       })

@@ -20,6 +20,7 @@ class room extends Phaser.Scene {
 
     if (isMobile) {
       // Se for o celular, assume a sala da URL e vai direto pro jogo
+      // (O celular é só o controle, então não precisa passar pela cutscene)
       this.game.room = urlParams.get("room");
       this.scene.stop("room");
       this.scene.start("scene0");
@@ -65,7 +66,8 @@ class room extends Phaser.Scene {
       }
       this.game.socket.emit("start-game", this.game.room);
       this.scene.stop("room");
-      this.scene.start("scene0");
+      // MUDANÇA AQUI: Agora o botão "Começar" manda pra Cutscene ao invés da scene0
+      this.scene.start("cutscene");
     });
 
     // Gerar ou atualizar o QR Code
@@ -106,7 +108,7 @@ class room extends Phaser.Scene {
       }
 
       this.scene.stop("room");
-      this.scene.start("scene0");
+      this.scene.start("cutscene"); // Aqui já estava certinho!
     });
   }
 }
