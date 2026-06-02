@@ -51,11 +51,11 @@ export default class Menu extends Phaser.Scene {
     // Define a cor padrão dos botões
     const btnColor = 0x9f88d8; // provided color
 
-    // Calcula a largura do botão (no máximo 420px ou 60% da tela) e define altura, posição inicial e espaço entre eles
-    const btnWidth = Math.min(420, width * 0.6);
-    const btnHeight = 64;
+    // Calcula a largura do botão (no máximo 360px ou 55% da tela) e define altura, posição inicial e espaço entre eles
+    const btnWidth = Math.min(360, width * 0.55);
+    const btnHeight = 48;
     const startY = height * 0.4;
-    const gap = 20;
+    const gap = 16;
 
     // --- FUNÇÃO AUXILIAR: CRIADOR DE BOTÕES ---
     // Cria uma função reutilizável para desenhar os botões na tela mais facilmente
@@ -70,7 +70,7 @@ export default class Menu extends Phaser.Scene {
       // Cria o texto que vai dentro do botão
       const txt = this.add
         .text(x, y, label, {
-          fontSize: "24px",
+          fontSize: "20px",
           fill: "#ffffff",
           fontFamily: "MinhaFontePersonalizada",
         })
@@ -89,11 +89,15 @@ export default class Menu extends Phaser.Scene {
     };
 
     // --- BLOCO: BOTÃO MODO HISTÓRIA ---
-    // Cria o primeiro botão. Ao clicar, define o jogo como "não infinito" e vai para a sala de espera (room)
+    // Cria o primeiro botão. Ao clicar, define o jogo como "não infinito" e vai para a cutscene
     createButton(width / 2, startY, "Modo historia", () => {
       this.game.isInfiniteMode = false;
+      // stop menu music before transitioning
+      if (this.sound.get("menu") && this.sound.get("menu").isPlaying) {
+        this.sound.get("menu").stop();
+      }
       this.scene.stop("menu");
-      this.scene.start("room");
+      this.scene.start("cutscene");
     });
 
     // --- BLOCO: DESBLOQUEIO DO MODO INFINITO ---
@@ -110,8 +114,13 @@ export default class Menu extends Phaser.Scene {
     if (hasWon) {
       createButton(width / 2, startY + btnHeight + gap, "Modo Infinito", () => {
         this.game.isInfiniteMode = true; // Ativa a flag de modo infinito
+        // stop menu music before transitioning
+        if (this.sound.get("menu") && this.sound.get("menu").isPlaying) {
+          this.sound.get("menu").stop();
+        }
         this.scene.stop("menu");
-        this.scene.start("room");
+        // Ask for player name before starting infinite match
+        this.scene.start("nameentry", { prestart: true });
       });
     }
 
@@ -124,6 +133,17 @@ export default class Menu extends Phaser.Scene {
     createButton(width / 2, placarY, "Placar", () => {
       this.scene.stop("menu");
       this.scene.start("leaderboard"); // Direciona para a tela de melhores pontuações
+    });
+
+    // --- BOTÃO: ESPECTAR ---
+    // Coloca o botão de espectar logo abaixo do placar
+    createButton(width / 2, placarY + btnHeight + gap, "Espectar", () => {
+      // stop menu music before spectating
+      if (this.sound.get("menu") && this.sound.get("menu").isPlaying) {
+        this.sound.get("menu").stop();
+      }
+      this.scene.stop("menu");
+      this.scene.start("spectate");
     });
   }
 }

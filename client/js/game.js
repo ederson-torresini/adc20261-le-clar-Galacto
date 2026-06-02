@@ -3,7 +3,8 @@ import Scene0 from "./scene0.js";
 import Start from "./start.js";
 import preloader from "./preloader.js";
 import Menu from "./menu.js";
-import room from "./room.js";
+// room scene removed per request
+import Spectate from "./spectate.js";
 import NameEntry from "./nameentry.js";
 import Leaderboard from "./leaderboard.js";
 import GameOver from "./gameover.js";
@@ -16,7 +17,8 @@ class Game extends Phaser.Game {
     this.scene.add("start", Start);
     this.scene.add("preloader", preloader);
     this.scene.add("menu", Menu);
-    this.scene.add("room", room);
+    // room removed; add spectate scene for watching matches
+    this.scene.add("spectate", Spectate);
     this.scene.add("nameentry", NameEntry);
     this.scene.add("leaderboard", Leaderboard);
 
@@ -28,13 +30,50 @@ class Game extends Phaser.Game {
     this.scene.add("win", Win);
     this.scene.start("start");
 
-    if (location.hostname.match(/localhost|127\.0\.0\.1/)) {
-      this.socket = io("http://localhost:3000");
-    } else if (location.hostname.match(/github\.dev/)) {
-      this.socket = io(location.hostname.replace("8080", "3000"));
-    } else {
-      this.socket = io();
-    }
+    const getSocketUrl = () => {
+      if (location.hostname.match(/localhost|127\.0\.0\.1/)) {
+        return `${location.protocol}//localhost:3000`;
+      }
+      if (location.hostname.match(/\.app\.github\.dev$/)) {
+        return `${location.protocol}//${location.hostname.replace(/-8080\.app\.github\.dev$/, "-3000.app.github.dev")}`;
+      }
+      if (location.port === "8080") {
+        return `${location.protocol}//${location.hostname}:3000`;
+      }
+      return null;
+    };
+
+    const socketUrl = getSocketUrl();
+    this.socket = socketUrl
+      ? io(socketUrl, {
+          transports: ["polling", "websocket"],
+          path: "/socket.io",
+        })
+      : io({ transports: ["polling", "websocket"], path: "/socket.io" });
+
+    this.socket.on("connect_error", (err) => {
+      console.error("Socket connect error:", err);
+    });
+
+    const tryLockOrientation = async () => {
+      const orientation =
+        screen.orientation || screen.mozOrientation || screen.msOrientation;
+      if (orientation && typeof orientation.lock === "function") {
+        try {
+          await orientation.lock("landscape");
+        } catch (error) {
+          console.warn("Orientation lock unavailable:", error);
+        }
+      }
+    };
+
+    document.addEventListener(
+      "pointerdown",
+      () => {
+        tryLockOrientation();
+      },
+      { once: true },
+    );
 
     this.socket.on("connect", () => {
       console.log("Socket ID:", this.socket.id);

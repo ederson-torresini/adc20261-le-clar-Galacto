@@ -4,7 +4,7 @@ export default class Cutscene extends Phaser.Scene {
   }
 
   init(data) {
-    // Recebe parâmetros para saber se é um retry do GameOver
+    // Recebe parâmetros para saber se é um retry do GameOver.
     this.isRetry = data && data.isRetry;
   }
 
@@ -21,7 +21,8 @@ export default class Cutscene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#000000");
 
     // 2. CONFIGURAR IMAGENS DA CUTSCENE
-    // Troque as keys pelas imagens reais que você carregou no preloader
+    // Cada imagem é exibida em sequência durante a introdução.
+    // Troque as keys pelas imagens reais que você carregou no preloader.
     const imageKeys = ["cutscene_1", "cutscene_2", "cutscene_3", "cutscene_4"];
     this.images = imageKeys.map((key) => {
       const img = this.add.image(width / 2, height / 2, key).setAlpha(0);
@@ -33,6 +34,14 @@ export default class Cutscene extends Phaser.Scene {
 
     // 3. INICIAR TRANSIÇÕES BÁSICAS (Fade in, Hold, Fade out)
     this.playImage(0);
+
+    // Play cutscene music if available
+    const cutsceneSound = this.sound.get("cutscene");
+    if (!cutsceneSound) {
+      this.sound.play("cutscene", { loop: false, volume: 0.6 });
+    } else if (!cutsceneSound.isPlaying) {
+      cutsceneSound.play();
+    }
 
     // 4. UI DO SISTEMA DE PULAR (HOLD-TO-SKIP)
     this.holdProgress = 0;
@@ -91,8 +100,11 @@ export default class Cutscene extends Phaser.Scene {
   }
 
   cancelSkip() {
-    if (this.holdTween && this.holdTween.isPlaying()) {
-      this.holdTween.stop();
+    if (this.holdTween) {
+      try {
+        this.holdTween.stop();
+      } catch (e) {}
+      this.holdTween = null;
     }
     this.holdProgress = 0;
     this.drawSkipRing();
@@ -137,6 +149,15 @@ export default class Cutscene extends Phaser.Scene {
     // Um fade preto rápido antes de jogar pra cena do jogo pra não ficar seco
     this.cameras.main.fadeOut(500, 0, 0, 0);
     this.cameras.main.once("camerafadeoutcomplete", () => {
+      // stop cutscene music
+      try {
+        if (
+          this.sound.get("cutscene") &&
+          this.sound.get("cutscene").isPlaying
+        ) {
+          this.sound.get("cutscene").stop();
+        }
+      } catch (e) {}
       this.scene.start("scene0");
     });
   }

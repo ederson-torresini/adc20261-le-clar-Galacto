@@ -3,6 +3,7 @@ export default class Win extends Phaser.Scene {
     super("win");
   }
 
+  // Win scene shown after the player completes a story run successfully.
   create() {
     const { width, height } = this.scale;
     this.bg = this.add.image(width / 2, height / 2, "phbg");

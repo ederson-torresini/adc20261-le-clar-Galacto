@@ -6,8 +6,10 @@ export default class Scene0 extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
+    // A shared group for everything that scrolls with the level.
     this.worldLayer = this.add.group();
 
+    // Deterministic random seed per room so track generation is consistent.
     this.random = new Phaser.Math.RandomDataGenerator([
       this.game.room || "default",
     ]);
@@ -47,10 +49,12 @@ export default class Scene0 extends Phaser.Scene {
     this.piecesSinceLastWindow = 0;
     this.piecesSinceLastTrickWindow = 0;
     this.forcedStraightRemaining = 0;
+    this.initialStraightRemaining = 12;
 
     this.isInfiniteMode = !!this.game.isInfiniteMode;
 
-    // --- SISTEMA DE TUTORIAL (Só História e Só 1ª Vez) ---
+    // --- SISTEMA DE TUTORIAL (História apenas, primeira vez) ---
+    // Não mostra tutorial no modo infinito e não repete se já foi visto.
     const tutorialDone = localStorage.getItem("galacto_tutorial_done");
     this.tutorialActive = !this.isInfiniteMode && !tutorialDone;
 
@@ -58,14 +62,6 @@ export default class Scene0 extends Phaser.Scene {
       this.tutorialStep = 0;
       this.tutorialTimer = 0;
       this.totalPiecesGenerated = 0;
-      this.safeZoneActive = true;
-      this.safeZoneRemaining = 1.5;
-    } else {
-      this.safeZoneActive = true;
-      this.safeZoneTime = 3;
-      this.safeZoneRemaining = this.safeZoneTime;
-      this.safeStraightPieces = 5;
-      this.safeStraightGenerated = 0;
     }
 
     this.speed = 550;
@@ -135,33 +131,19 @@ export default class Scene0 extends Phaser.Scene {
 
     if (this.tutorialActive) {
       this.tutorialText = this.add
-        .text(
-          width / 2,
-          height * 0.75,
-          "Pressione a direita para virar a curva",
-          {
-            fontSize: "26px",
-            fill: "#00ff00",
-            fontFamily: "MinhaFontePersonalizada",
-            align: "center",
-            backgroundColor: "#000000aa",
-            padding: { x: 15, y: 15 },
-          },
-        )
-        .setOrigin(0.5)
-        .setDepth(100)
-        .setScrollFactor(0);
-      ignoreList.push(this.tutorialText);
-    } else {
-      this.safeZoneText = this.add
-        .text(30, 130, `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`, {
+        .text(width - 30, 50, "Pressione a direita para virar a curva", {
           fontSize: "22px",
           fill: "#00ff00",
           fontFamily: "MinhaFontePersonalizada",
+          align: "left",
+          wordWrap: { width: 260, useAdvancedWrap: true },
+          backgroundColor: "#000000cc",
+          padding: { x: 14, y: 14 },
         })
+        .setOrigin(1, 0)
         .setDepth(100)
         .setScrollFactor(0);
-      ignoreList.push(this.safeZoneText);
+      ignoreList.push(this.tutorialText);
     }
 
     this.cameras.main.ignore(ignoreList);
@@ -173,17 +155,17 @@ export default class Scene0 extends Phaser.Scene {
     this.uiCam.ignore([this.bgStars, this.worldLayer]);
 
     this.pointerGesture = { downX: 0, downY: 0, downTime: 0, moved: false };
+    // Touch / mouse input begins: record swipe start coordinates.
     this.input.on("pointerdown", (pointer) => {
-      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
-        return;
+      if (this.isGameOver || this.game.isSpectator) return;
       this.pointerGesture.downX = pointer.x;
       this.pointerGesture.downY = pointer.y;
       this.pointerGesture.downTime = performance.now();
     });
 
+    // Touch / mouse end: interpret swipe or tap as trick or turn gesture.
     this.input.on("pointerup", (pointer) => {
-      if (this.isGameOver || this.game.isSpectator || this.safeZoneActive)
-        return;
+      if (this.isGameOver || this.game.isSpectator) return;
       const dx = pointer.x - this.pointerGesture.downX;
       const dy = pointer.y - this.pointerGesture.downY;
       if (
@@ -202,18 +184,136 @@ export default class Scene0 extends Phaser.Scene {
     this.input.keyboard.on("keydown-W", () => this.startTrick());
 
     this.events.on("shutdown", () => this.cleanup());
+
+    // Socket: for spectators, receive remote state updates
+    if (this.game.socket) {
+      this.game.socket.on("scene0", (state) => {
+        // Only spectators should apply remote state updates
+        if (!this.game.isSpectator) return;
+        if (state && typeof state === "object") {
+          if (typeof state.score === "number") {
+            this.score = state.score;
+            this.scoreText.setText(
+              this.isInfiniteMode
+                ? `Pontos: ${this.score}`
+                : `Pontos: ${this.score} / ${this.targetScore}`,
+            );
+          }
+          if (typeof state.time === "number") {
+            this.timeElapsed = state.time;
+            this.timeText.setText(
+              this.isInfiniteMode
+                ? `Tempo: ${Math.ceil(this.timeElapsed)}s`
+                : `Tempo: ${this.maxTime}s`,
+            );
+          }
+          // Apply player/carrier positions for smoother spectating
+          try {
+            if (state.player) {
+              if (typeof state.player.x === "number")
+                this.player.x = state.player.x;
+              if (typeof state.player.y === "number")
+                this.player.y = state.player.y;
+              if (typeof state.player.angle === "number")
+                this.player.angle = state.player.angle;
+              if (typeof state.player.frame !== "undefined")
+                this.player.setFrame(state.player.frame);
+            }
+            if (state.carrier) {
+              if (typeof state.carrier.x === "number")
+                this.carrier.x = state.carrier.x;
+              if (typeof state.carrier.y === "number")
+                this.carrier.y = state.carrier.y;
+              if (typeof state.carrier.rotation === "number")
+                this.carrier.rotation = state.carrier.rotation;
+            }
+            if (state.camera) {
+              if (typeof state.camera.rotation === "number")
+                this.cameras.main.rotation = state.camera.rotation;
+              if (state.camera.followOffset) {
+                const fo = state.camera.followOffset;
+                if (typeof fo.x === "number")
+                  this.cameras.main.followOffset.x = fo.x;
+                if (typeof fo.y === "number")
+                  this.cameras.main.followOffset.y = fo.y;
+              }
+            }
+          } catch (e) {
+            // ignore any sync errors
+          }
+        }
+      });
+      this.game.socket.on("game-ended", () => {
+        if (this.game.isSpectator) {
+          // Spectator: leave view when match ends and return to menu.
+          this.game.isSpectator = false;
+          this.cleanup();
+          this.scene.start("menu");
+        }
+      });
+    }
+
+    // If player is the host of an infinite match, periodically send state updates to server
+    this._infiniteUpdateInterval = null;
+    if (
+      this.game.socket &&
+      this.isInfiniteMode &&
+      !this.game.isSpectator &&
+      this.game.room
+    ) {
+      this._infiniteUpdateInterval = setInterval(() => {
+        try {
+          // Send richer state for spectators: score, time, player and carrier positions
+          const state = {
+            score: this.score,
+            time: Math.ceil(this.timeElapsed),
+            player: {
+              x: this.player.x,
+              y: this.player.y,
+              angle: this.player.angle,
+              frame: this.player.frame
+                ? this.player.frame.name || this.player.frame
+                : undefined,
+            },
+            carrier: {
+              x: this.carrier.x,
+              y: this.carrier.y,
+              rotation: this.carrier.rotation,
+            },
+            camera: {
+              rotation: this.cameras.main.rotation,
+              followOffset: {
+                x: this.cameras.main.followOffset.x,
+                y: this.cameras.main.followOffset.y,
+              },
+            },
+          };
+          this.game.socket.emit("update-infinite", this.game.room, state);
+        } catch (e) {
+          // ignore
+        }
+      }, 300);
+    }
   }
 
   cleanup() {
     if (this.game.socket) {
+      // Remove socket listeners added during this scene to prevent duplicates.
+      this.game.socket.off("scene0");
+      this.game.socket.off("game-ended");
       if (this.game.room) {
         this.game.socket.emit("leave-room", this.game.room);
         this.game.room = null;
       }
     }
     if (this.bgMusic) this.bgMusic.stop();
+    if (this._infiniteUpdateInterval) {
+      clearInterval(this._infiniteUpdateInterval);
+      this._infiniteUpdateInterval = null;
+    }
   }
 
+  // End the current gameplay session and switch to a different scene.
   endGame(sceneKey) {
     if (!this.game.isSpectator && this.game.socket && this.game.room) {
       this.game.socket.emit("change-scene", this.game.room, sceneKey);
@@ -223,6 +323,7 @@ export default class Scene0 extends Phaser.Scene {
     this.scene.start(sceneKey);
   }
 
+  // Check upcoming pieces to decide whether a curve appears soon.
   isCurveUpcoming(lookAheadCount = 5) {
     const currentPiece = this.getPieceUnder(this.carrier);
     if (!currentPiece) return null;
@@ -239,12 +340,12 @@ export default class Scene0 extends Phaser.Scene {
     return null;
   }
 
+  // Begin a special trick move when the player swipes up.
   startTrick() {
     const curveAhead = !!this.isCurveUpcoming(5);
 
     if (
       this.isGameOver ||
-      this.safeZoneActive ||
       this.isDoingTrick ||
       this.trickCooldown ||
       this.leanDirection !== "NONE" ||
@@ -283,6 +384,7 @@ export default class Scene0 extends Phaser.Scene {
     });
   }
 
+  // Smoothly rotate the camera to align with the track direction.
   updateCameraRotation() {
     let targetCamRad = 0;
     if (this.carrierTravelDir === "UP") targetCamRad = 0;
@@ -338,6 +440,7 @@ export default class Scene0 extends Phaser.Scene {
     });
   }
 
+  // Spawn decorative asteroids near the current track piece.
   spawnAsteroidNear(x, y) {
     for (let i = 0; i < 4; i++) {
       if (this.random.frac() > 0.7) continue;
@@ -359,6 +462,7 @@ export default class Scene0 extends Phaser.Scene {
     }
   }
 
+  // Handle a failed turn or incorrect lean by triggering a fall animation.
   triggerFall() {
     if (this.isGameOver) return;
     this.isGameOver = true;
@@ -378,21 +482,25 @@ export default class Scene0 extends Phaser.Scene {
     });
     this.tweens.add({ targets: this.bgMusic, volume: 0, duration: 1200 });
     this.time.delayedCall(1200, () => {
-      this.cleanup();
       if (this.isInfiniteMode) {
         this.game.lastInfiniteResult = {
           score: this.score,
           time: Math.ceil(this.timeElapsed),
         };
-        this.scene.start("nameentry");
+        // Notify server that this infinite match ended before cleanup removes the room.
+        if (this.game.socket && this.game.room) {
+          this.game.socket.emit("end-infinite", this.game.room);
+        }
+        this.endGame("menu");
       } else {
         this.endGame("gameover");
       }
     });
   }
 
+  // Attempt to steer the player left or right based on input.
   attemptTurn(turnIntent) {
-    if (this.isGameOver || this.isDoingTrick || this.safeZoneActive) return;
+    if (this.isGameOver || this.isDoingTrick) return;
 
     const cp = this.getPieceUnder(this.carrier);
     if (
@@ -414,64 +522,60 @@ export default class Scene0 extends Phaser.Scene {
     this.leanDirection = turnIntent;
   }
 
+  // Generate a new track tile and advance the track cursor.
   generateTrackPiece() {
     let type = "way_f";
 
-    if (this.tutorialActive && this.totalPiecesGenerated < 50) {
+    if (this.initialStraightRemaining > 0) {
+      type = "way_f";
+      this.initialStraightRemaining--;
+      this.straightPiecesCount++;
+      this.piecesSinceLastWindow++;
+      this.piecesSinceLastTrickWindow++;
+    } else if (this.tutorialActive && this.totalPiecesGenerated < 50) {
       if (this.totalPiecesGenerated === 15) type = "way_r";
       else if (this.totalPiecesGenerated === 30) type = "way_l";
       else type = "way_f";
       this.totalPiecesGenerated++;
+    } else if (this.forcedStraightRemaining > 0) {
+      this.forcedStraightRemaining--;
+      this.straightPiecesCount++;
+      this.piecesSinceLastWindow++;
+      type = "way_f";
+      if (this.forcedStraightRemaining === 0) this.justTurned = true;
     } else {
-      if (
-        !this.tutorialActive &&
-        this.safeStraightGenerated < this.safeStraightPieces
-      ) {
-        this.safeStraightGenerated++;
-        this.straightPiecesCount++;
-        this.piecesSinceLastWindow++;
-        this.piecesSinceLastTrickWindow++;
+      const ensureTrickWindow = this.piecesSinceLastTrickWindow >= 10;
+      this.straightPiecesCount++;
+      this.piecesSinceLastWindow++;
+      this.piecesSinceLastTrickWindow++;
+
+      const mustCurve =
+        this.straightPiecesCount >= 4 || this.piecesSinceLastWindow >= 8;
+      const randomCurve =
+        this.straightPiecesCount > 1 && this.random.frac() < 0.55;
+
+      if (ensureTrickWindow) {
+        this.forcedStraightRemaining = Math.max(
+          this.forcedStraightRemaining,
+          5,
+        );
+        this.piecesSinceLastTrickWindow = 0;
         type = "way_f";
-      } else if (this.forcedStraightRemaining > 0) {
-        this.forcedStraightRemaining--;
-        this.straightPiecesCount++;
-        this.piecesSinceLastWindow++;
-        type = "way_f";
-        if (this.forcedStraightRemaining === 0) this.justTurned = true;
+      } else if (mustCurve || randomCurve) {
+        type =
+          this.turnHistory > 0
+            ? "way_l"
+            : this.turnHistory < 0
+              ? "way_r"
+              : this.random.frac() < 0.5
+                ? "way_l"
+                : "way_r";
+        this.turnHistory += type === "way_r" ? 1 : -1;
+        this.justTurned = true;
+        this.piecesSinceLastWindow = 0;
+        this.straightPiecesCount = 0;
       } else {
-        const ensureTrickWindow = this.piecesSinceLastTrickWindow >= 10;
-        this.straightPiecesCount++;
-        this.piecesSinceLastWindow++;
-        this.piecesSinceLastTrickWindow++;
-
-        const mustCurve =
-          this.straightPiecesCount >= 4 || this.piecesSinceLastWindow >= 8;
-        const randomCurve =
-          this.straightPiecesCount > 1 && this.random.frac() < 0.55;
-
-        if (ensureTrickWindow) {
-          this.forcedStraightRemaining = Math.max(
-            this.forcedStraightRemaining,
-            5,
-          );
-          this.piecesSinceLastTrickWindow = 0;
-          type = "way_f";
-        } else if (mustCurve || randomCurve) {
-          type =
-            this.turnHistory > 0
-              ? "way_l"
-              : this.turnHistory < 0
-                ? "way_r"
-                : this.random.frac() < 0.5
-                  ? "way_l"
-                  : "way_r";
-          this.turnHistory += type === "way_r" ? 1 : -1;
-          this.justTurned = true;
-          this.piecesSinceLastWindow = 0;
-          this.straightPiecesCount = 0;
-        } else {
-          type = "way_f";
-        }
+        type = "way_f";
       }
     }
 
@@ -516,26 +620,11 @@ export default class Scene0 extends Phaser.Scene {
     piece.setAngle(angle);
   }
 
+  // Main game loop: update timers, physics, input response, and track generation.
   update(time, delta) {
     const dtSeconds = delta / 1000;
 
     if (!this.isGameOver) {
-      if (this.safeZoneActive) {
-        this.safeZoneRemaining = Math.max(
-          0,
-          this.safeZoneRemaining - dtSeconds,
-        );
-        if (this.safeZoneText) {
-          this.safeZoneText.setText(
-            `Zona segura: ${this.safeZoneRemaining.toFixed(1)}s`,
-          );
-        }
-        if (this.safeZoneRemaining <= 0) {
-          this.safeZoneActive = false;
-          if (this.safeZoneText) this.safeZoneText.destroy();
-        }
-      }
-
       if (this.tutorialActive) {
         if (this.tutorialStep === 0) {
           if (

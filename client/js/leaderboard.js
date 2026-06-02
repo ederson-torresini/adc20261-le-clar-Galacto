@@ -20,15 +20,15 @@ export default class Leaderboard extends Phaser.Scene {
     const { width, height } = this.scale;
 
     //MÚSICA
-if (!this.sound.get("menu")) {
-    const musica = this.sound.add("menu", { 
-        loop: true, 
-        volume: 0.5 
-    });
-    musica.play();
-} else if (!this.sound.get("menu").isPlaying) {
-    this.sound.get("menu").play();
-}
+    if (!this.sound.get("menu")) {
+      const musica = this.sound.add("menu", {
+        loop: true,
+        volume: 0.5,
+      });
+      musica.play();
+    } else if (!this.sound.get("menu").isPlaying) {
+      this.sound.get("menu").play();
+    }
 
     // --- BLOCO: ELEMENTOS VISUAIS E BACKGROUND ---
     // Cria um retângulo escuro e semi-transparente para servir de fundo da tela
@@ -151,7 +151,7 @@ if (!this.sound.get("menu")) {
     const formatted = this.leaderboard
       .slice(0, 5)
       .map((entry, index) => {
-        return `${index + 1}. ${entry.name} — ${entry.points} pts — ${entry.time}s`;
+        return `${index + 1}. ${entry.name} — ${entry.points} pts`;
       })
       .join("\n\n");
 

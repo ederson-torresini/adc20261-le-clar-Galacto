@@ -17,46 +17,44 @@ export default class NameEntry extends Phaser.Scene {
     // Pega as dimensões atuais da tela do jogo
     const { width, height } = this.scale;
 
+    const data = this.scene.settings.data || {};
+    const isPrestart = !!data.prestart;
+
     // --- BLOCO: FUNDO E TEXTOS DO PHASER ---
     // Cria um fundo escuro semi-transparente que cobre a tela toda
     this.add.rectangle(0, 0, width, height, 0x050717, 0.95).setOrigin(0);
 
-    // Adiciona o título da tela
-    this.add
-      .text(width / 2, height * 0.2, "Fim de jogo", {
-        fontSize: "44px",
-        fill: "#ffffff",
-        fontFamily: "MinhaFontePersonalizada",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5); // Centraliza
-
-    // Recupera os resultados da última partida do modo infinito salvos no objeto global 'game'
-    // Se por acaso não tiver nada, usa { score: 0, time: 0 } como segurança
-    const result = this.game.lastInfiniteResult || { score: 0, time: 0 };
-
-    // Mostra a pontuação e o tempo que o jogador conseguiu
+    // Title depends on whether we're asking the name before starting
     this.add
       .text(
         width / 2,
-        height * 0.32,
-        `Pontos: ${result.score}  ·  Tempo: ${result.time}s`,
+        height * 0.18,
+        isPrestart ? "Digite seu nome" : "Fim de jogo",
         {
-          fontSize: "28px",
-          fill: "#ffff00", // Cor amarela para destaque
+          fontSize: "44px",
+          fill: "#ffffff",
           fontFamily: "MinhaFontePersonalizada",
+          fontStyle: "bold",
         },
       )
-      .setOrigin(0.5);
+      .setOrigin(0.5); // Centraliza
 
-    // Texto de instrução para o input
-    const inputLabel = this.add
-      .text(width / 2, height * 0.42, "Digite seu nome:", {
-        fontSize: "26px",
-        fill: "#ffffff",
-        fontFamily: "MinhaFontePersonalizada",
-      })
-      .setOrigin(0.5);
+    // If this is not prestart, show the last result (compat)
+    const result = this.game.lastInfiniteResult || { score: 0, time: 0 };
+    if (!isPrestart) {
+      this.add
+        .text(
+          width / 2,
+          height * 0.32,
+          `Pontos: ${result.score}  ·  Tempo: ${result.time}s`,
+          {
+            fontSize: "28px",
+            fill: "#ffff00",
+            fontFamily: "MinhaFontePersonalizada",
+          },
+        )
+        .setOrigin(0.5);
+    }
 
     // --- BLOCO: CRIAÇÃO DE ELEMENTOS HTML (DOM) ---
     // Como a digitação de texto no Phaser pode ser complicada (principalmente em celulares),
@@ -102,6 +100,21 @@ export default class NameEntry extends Phaser.Scene {
     info.style.textAlign = "center";
     info.style.width = "360px";
 
+    // 4. Cria o botão de "Voltar"
+    const backButton = document.createElement("button");
+    backButton.textContent = "Voltar";
+    backButton.style.position = "absolute";
+    backButton.style.padding = "12px 22px";
+    backButton.style.fontSize = "16px";
+    backButton.style.fontFamily = "MinhaFontePersonalizada, sans-serif";
+    backButton.style.background = "rgba(255,255,255,0.08)";
+    backButton.style.color = "#ffffff";
+    backButton.style.border = "2px solid #ffffff";
+    backButton.style.borderRadius = "12px";
+    backButton.style.cursor = "pointer";
+    backButton.style.outline = "none";
+    backButton.style.width = "120px";
+
     // --- BLOCO: POSICIONAMENTO DINÂMICO DOS ELEMENTOS HTML ---
     // Função que calcula exatamente onde os elementos HTML devem ficar em relação ao Canvas do jogo
     const updateDomPlacement = () => {
@@ -114,7 +127,10 @@ export default class NameEntry extends Phaser.Scene {
       input.style.left = `${centerX - 160}px`;
       input.style.top = `${centerY - 28}px`;
 
-      button.style.left = `${centerX - 55}px`;
+      backButton.style.left = `${centerX - 135}px`;
+      backButton.style.top = `${centerY + 52}px`;
+
+      button.style.left = `${centerX + 15}px`;
       button.style.top = `${centerY + 52}px`;
 
       info.style.left = `${centerX - 180}px`;
@@ -124,10 +140,11 @@ export default class NameEntry extends Phaser.Scene {
     // Adiciona os elementos criados no corpo (body) do site
     document.body.appendChild(input);
     document.body.appendChild(button);
+    document.body.appendChild(backButton);
     document.body.appendChild(info);
 
     // Guarda na lista para podermos apagar depois
-    this.domElements.push(input, button, info);
+    this.domElements.push(input, button, backButton, info);
 
     // Roda a função de posicionar pela primeira vez
     updateDomPlacement();
@@ -138,7 +155,7 @@ export default class NameEntry extends Phaser.Scene {
 
     // --- BLOCO: EVENTOS DE ENVIO (CLICK E ENTER) ---
     // Função que é chamada ao clicar no botão
-    this.submitHandler = () => this.submitName(input.value.trim()); // .trim() remove espaços em branco inúteis
+    this.submitHandler = () => this.submitName(input.value.trim(), isPrestart); // .trim() remove espaços em branco inúteis
 
     // Função que escuta o teclado para enviar quando apertar a tecla "Enter"
     this.keydownHandler = (event) => {
@@ -149,6 +166,10 @@ export default class NameEntry extends Phaser.Scene {
 
     // Liga os eventos aos elementos HTML
     button.addEventListener("click", this.submitHandler);
+    backButton.addEventListener("click", () => {
+      this.cleanupDom();
+      this.scene.start("menu");
+    });
     input.addEventListener("keydown", this.keydownHandler);
 
     // Já deixa o campo de texto selecionado para o jogador só começar a digitar
@@ -160,28 +181,52 @@ export default class NameEntry extends Phaser.Scene {
     // Se o nome estiver vazio, não faz nada (bloqueia o envio)
     if (!name) return;
 
-    // Pega o resultado de novo
-    const result = this.game.lastInfiniteResult || { score: 0, time: 0 };
+    // If this is a prestart name entry, create an infinite match and join
+    const isPrestart = !!(
+      this.scene.settings.data && this.scene.settings.data.prestart
+    );
+    if (isPrestart) {
+      // assign player name and create a room for this infinite match
+      this.game.playerName = name;
+      if (!this.game.room) {
+        this.game.room = (Math.random() * 10000).toString().split(".")[0];
+      }
 
-    // Função que envia o evento via WebSocket pro servidor
+      const createHandler = () => {
+        this.game.socket.emit(
+          "create-infinite",
+          this.game.room,
+          this.game.playerName,
+        );
+        this.game.socket.emit("join-room", this.game.room);
+      };
+
+      if (this.game.socket && this.game.socket.connected) {
+        createHandler();
+      } else if (this.game.socket) {
+        this.game.socket.once("connect", createHandler);
+      }
+
+      this.cleanupDom();
+      this.scene.start("scene0");
+      return;
+    }
+
+    // Fallback: legacy behavior (submit score) -- kept for compatibility
+    const result = this.game.lastInfiniteResult || { score: 0, time: 0 };
     this.scoreConnectHandler = () => {
       this.game.socket.emit("submit-score", {
-        name, // O nome que o jogador digitou
+        name,
         points: result.score,
         time: result.time,
       });
     };
-
-    // Verifica se a conexão com o servidor está ativa
     if (this.game.socket.connected) {
-      this.scoreConnectHandler(); // Envia direto
+      this.scoreConnectHandler();
       this.scoreConnectHandler = null;
     } else {
-      // Se não estiver, espera conectar primeiro antes de enviar
       this.game.socket.once("connect", this.scoreConnectHandler);
     }
-
-    // Limpa a tela (apaga os HTMLs) e manda o jogador para a tela de Placar
     this.cleanupDom();
     this.scene.start("leaderboard");
   }

@@ -3,6 +3,7 @@ export default class Gameover extends Phaser.Scene {
     super("gameover");
   }
 
+  // Game Over screen showing retry and menu options.
   create() {
     const { width, height } = this.scale;
 
@@ -65,17 +66,13 @@ export default class Gameover extends Phaser.Scene {
     // --- BLOCO: BOTÃO "JOGAR NOVAMENTE" ---
     createButton(width / 2, height * 0.5, "Jogar Novamente", () => {
       if (!this.game.isSpectator) {
-        // Agora o modo história manda para a "cutscene" em vez de "scene0"
-        const targetScene = this.game.isInfiniteMode ? "room" : "cutscene";
-
-        // Avisa a sala no servidor
-        this.game.socket.emit("change-scene", this.game.room, targetScene);
-
-        // Inicia a cena correta passando o parâmetro isRetry se for a cutscene
-        if (targetScene === "cutscene") {
-          this.scene.start("cutscene", { isRetry: true });
+        // For story mode, go to cutscene. For infinite mode, ask for name and start a new infinite match.
+        if (this.game.isInfiniteMode) {
+          this.cleanup();
+          this.scene.start("nameentry", { prestart: true });
         } else {
-          this.scene.start(targetScene);
+          // story mode retry
+          this.scene.start("cutscene", { isRetry: true });
         }
       }
     });
@@ -90,5 +87,20 @@ export default class Gameover extends Phaser.Scene {
       this.scene.stop("gameover");
       this.scene.start("menu");
     });
+  }
+
+  cleanup() {
+    // Stop the running game scene if the player is retrying, then silence the game over audio.
+    try {
+      if (this.scene.isActive("scene0")) {
+        this.scene.stop("scene0");
+      }
+    } catch (e) {
+      console.warn("Error stopping scene0 during cleanup:", e);
+    }
+    const gameoverSound = this.sound.get("gameover");
+    if (gameoverSound && gameoverSound.isPlaying) {
+      gameoverSound.stop();
+    }
   }
 }

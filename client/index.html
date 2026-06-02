@@ -1,21 +1,29 @@
-<!doctype html> 
-<html lang="en"> 
-<head> 
+<!doctype html>
+<html lang="en">
+  <head>
     <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Galacto</title>
-    
-    <link rel="icon" type="image/x-icon" href="/icon.ico">
-    
-    <link rel="preload" href="assets/FONT.TTF" as="font" type="font/ttf" crossorigin>
+
+    <link rel="icon" type="image/x-icon" href="/icon.ico" />
+
+    <link
+      rel="preload"
+      href="assets/FONT.TTF"
+      as="font"
+      type="font/ttf"
+      crossorigin
+    />
     <link rel="stylesheet" href="./main.css" />
   </head>
   <body>
     <div class="under" id="game-container"></div>
-    <div class="over" id="qr-code"></div>
 
     <script src="./js/phaser.min.js"></script>
     <script src="./js/socket.io.min.js"></script>
-    <script src="./js/qrcode.min.js"></script>
     <script type="module" src="./js/game.js"></script>
   </body>
 </html>

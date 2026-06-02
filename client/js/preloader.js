@@ -62,6 +62,7 @@ class preloader extends Phaser.Scene {
     this.load.audio("button", "button.mp3");
     this.load.audio("swoosh", "swoosh.mp3");
     this.load.audio("soundtrack", "soundtrack.mp3");
+    this.load.audio("cutscene", "cutscene.mp3");
     this.load.audio("menu", "menu.mp3");
     this.load.audio("win", "win.mp3");
     this.load.audio("gameover", "gameover.mp3");
