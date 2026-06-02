@@ -145,5 +145,33 @@ export default class Menu extends Phaser.Scene {
       this.scene.stop("menu");
       this.scene.start("spectate");
     });
+
+    // --- AVISO DE TESTE ---
+    // Exibe uma mensagem pequena na parte inferior da tela explicando o atalho E
+    this.add
+      .text(
+        width / 2,
+        height * 0.95,
+        "aperte E para desbloquear modo infinito",
+        {
+          fontSize: "16px",
+          fill: "#ffffff",
+          fontFamily: "MinhaFontePersonalizada",
+        },
+      )
+      .setOrigin(0.5);
+
+    // --- TECLA DE ATALHO E ---
+    // Permite desbloquear o modo infinito diretamente pressionando E no menu
+    const keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    keyE.on("down", () => {
+      this.game.isInfiniteMode = true;
+      if (this.sound.get("menu") && this.sound.get("menu").isPlaying) {
+        this.sound.get("menu").stop();
+      }
+      this.sound.play("button");
+      this.scene.stop("menu");
+      this.scene.start("nameentry", { prestart: true });
+    });
   }
 }
